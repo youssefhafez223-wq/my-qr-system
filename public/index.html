@@ -1,0 +1,107 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My QR System - Dashboard</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6fa;
+      color: #172033;
+      padding: 30px;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+
+    h1 {
+      font-size: 28px;
+    }
+
+    .subtitle {
+      color: #687386;
+      margin-top: 7px;
+    }
+
+    .panel {
+      background: white;
+      padding: 24px;
+      border-radius: 14px;
+      box-shadow: 0 3px 15px #1720330d;
+      margin-bottom: 22px;
+    }
+
+    .panel h2 {
+      margin-bottom: 18px;
+      font-size: 20px;
+    }
+
+    .empty {
+      color: #7b8494;
+      text-align: center;
+      padding: 35px 10px;
+    }
+
+    .status {
+      display: inline-block;
+      background: #fff2d8;
+      color: #946200;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 16px;
+      }
+
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header>
+      <div>
+        <h1>My QR System</h1>
+        <p class="subtitle">Manage your dynamic QR codes</p>
+      </div>
+      <span class="status">Dashboard Preview</span>
+    </header>
+
+    <section class="panel">
+      <h2>Overview</h2>
+      <p>Total QR Codes: <strong>0</strong></p>
+    </section>
+
+    <section class="panel">
+      <h2>QR Codes</h2>
+      <div class="empty">
+        <p>No QR codes to display yet.</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
