@@ -1,6 +1,9 @@
-
 name = "my-qr-system"
 main = "src/index.js"
 compatibility_date = "2026-11-13"
 
 workers_dev = true
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
