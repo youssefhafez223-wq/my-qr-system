@@ -16,6 +16,10 @@ export default {
       }
 
       try {
+        if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+          return new Response("Service unavailable", { status: 503 });
+        }
+
         const response = await fetch(
           `${env.SUPABASE_URL.replace(/\/+$/, "")}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}&select=destination_url,is_active&limit=1`,
           {
@@ -73,7 +77,10 @@ export default {
     };
 
     const getKey = async () => {
-      if (!env.ADMIN_PASSWORD) throw new Error("Admin password is not configured");
+      if (!env.ADMIN_PASSWORD) {
+        throw new Error("Admin password is not configured");
+      }
+
       return crypto.subtle.importKey(
         "raw",
         new TextEncoder().encode(env.ADMIN_PASSWORD),
@@ -90,6 +97,7 @@ export default {
       }));
 
       const key = await getKey();
+
       const signature = await crypto.subtle.sign(
         "HMAC",
         key,
@@ -98,6 +106,7 @@ export default {
 
       const bytes = new Uint8Array(signature);
       let binary = "";
+
       for (const byte of bytes) binary += String.fromCharCode(byte);
 
       const signed = btoa(binary)
@@ -112,14 +121,21 @@ export default {
     const isAuthorized = async () => {
       try {
         const auth = request.headers.get("Authorization") || "";
+
         if (!auth.startsWith("Bearer ")) return false;
 
         const token = auth.slice(7).split(".");
+
         if (token.length !== 2) return false;
 
         const key = await getKey();
-        const signatureBase64 = token[1].replace(/-/g, "+").replace(/_/g, "/");
+
+        const signatureBase64 = token[1]
+          .replace(/-/g, "+")
+          .replace(/_/g, "/");
+
         const signatureBinary = atob(signatureBase64);
+
         const signature = Uint8Array.from(
           signatureBinary,
           c => c.charCodeAt(0)
@@ -135,6 +151,7 @@ export default {
         if (!valid) return false;
 
         const payload = JSON.parse(decode(token[0]));
+
         return payload.exp > Date.now();
       } catch {
         return false;
@@ -171,6 +188,7 @@ export default {
       }
 
       const supabaseUrl = env.SUPABASE_URL.replace(/\/+$/, "");
+
       const headers = {
         apikey: env.SUPABASE_SERVICE_ROLE_KEY,
         Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
@@ -180,57 +198,114 @@ export default {
 
       // List QR codes
       if (url.pathname === "/api/qr" && request.method === "GET") {
-        const response = await fetch(
-          `${supabaseUrl}/rest/v1/qr_codes?select=code,destination_url,is_active&order=code.asc`,
-          { headers }
-        );
+        try {
+          const response = await fetch(
+            `${supabaseUrl}/rest/v1/qr_codes?select=code,destination_url,is_active&order=code.asc`,
+            { headers }
+          );
 
-        if (!response.ok) {
-          return json({ error: "Could not load QR codes" }, 502);
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error("Supabase list error:", response.status, errorText);
+
+            return json({
+              error: `Could not load QR codes (${response.status})`
+            }, 502);
+          }
+
+          return json(await response.json());
+        } catch (error) {
+          console.error("List request failed:", error);
+          return json({ error: "Could not connect to Supabase" }, 502);
         }
-
-        return json(await response.json());
       }
 
       // Add QR code
       if (url.pathname === "/api/qr" && request.method === "POST") {
         try {
           const body = await request.json();
+
           const code = String(body.code || "").trim();
-          const destination = new URL(body.destination_url);
 
           if (!/^[a-zA-Z0-9_-]+$/.test(code)) {
             return json({ error: "Invalid QR code name" }, 400);
+          }
+
+          let destination;
+
+          try {
+            destination = new URL(body.destination_url);
+          } catch {
+            return json({ error: "Invalid destination URL" }, 400);
           }
 
           if (!["http:", "https:"].includes(destination.protocol)) {
             return json({ error: "Invalid destination URL" }, 400);
           }
 
-          const response = await fetch(`${supabaseUrl}/rest/v1/qr_codes`, {
-            method: "POST",
-            headers: { ...headers, Prefer: "return=representation" },
-            body: JSON.stringify({
-              code,
-              destination_url: destination.toString(),
-              is_active: true
-            })
-          });
+          const response = await fetch(
+            `${supabaseUrl}/rest/v1/qr_codes`,
+            {
+              method: "POST",
+              headers: {
+                ...headers,
+                Prefer: "return=representation"
+              },
+              body: JSON.stringify({
+                title: code,
+                code,
+                destination_url: destination.toString(),
+                is_active: true
+              })
+            }
+          );
 
           if (!response.ok) {
-            return json({ error: "Could not add QR code. Check that the code is unique." }, 400);
+            const errorText = await response.text();
+
+            console.error(
+              "Supabase insert failed:",
+              response.status,
+              errorText
+            );
+
+            let detail = errorText;
+
+            try {
+              const parsed = JSON.parse(errorText);
+
+              detail = [
+                parsed.message,
+                parsed.details,
+                parsed.hint,
+                parsed.code
+              ].filter(Boolean).join(" | ") || errorText;
+            } catch {
+              // Keep original error text
+            }
+
+            return json({
+              error: `Supabase insert failed (${response.status}): ${detail}`
+            }, 502);
           }
 
           return json(await response.json(), 201);
-        } catch {
-          return json({ error: "Invalid data" }, 400);
+
+        } catch (error) {
+          console.error("Add QR request failed:", error);
+
+          return json({
+            error: "Invalid data or request failed"
+          }, 400);
         }
       }
 
       // Update QR code
       if (url.pathname.startsWith("/api/qr/") && request.method === "PATCH") {
         try {
-          const code = decodeURIComponent(url.pathname.slice("/api/qr/".length));
+          const code = decodeURIComponent(
+            url.pathname.slice("/api/qr/".length)
+          );
 
           if (!/^[a-zA-Z0-9_-]+$/.test(code)) {
             return json({ error: "Invalid QR code" }, 400);
@@ -240,7 +315,13 @@ export default {
           const update = {};
 
           if (body.destination_url !== undefined) {
-            const destination = new URL(body.destination_url);
+            let destination;
+
+            try {
+              destination = new URL(body.destination_url);
+            } catch {
+              return json({ error: "Invalid destination URL" }, 400);
+            }
 
             if (!["http:", "https:"].includes(destination.protocol)) {
               return json({ error: "Invalid destination URL" }, 400);
@@ -261,42 +342,70 @@ export default {
             `${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}`,
             {
               method: "PATCH",
-              headers: { ...headers, Prefer: "return=representation" },
+              headers: {
+                ...headers,
+                Prefer: "return=representation"
+              },
               body: JSON.stringify(update)
             }
           );
 
           if (!response.ok) {
-            return json({ error: "Could not update QR code" }, 400);
+            const errorText = await response.text();
+
+            console.error("Supabase update failed:", response.status, errorText);
+
+            return json({
+              error: `Could not update QR code (${response.status}): ${errorText}`
+            }, 502);
           }
 
           return json(await response.json());
-        } catch {
+
+        } catch (error) {
+          console.error("Update request failed:", error);
           return json({ error: "Invalid data" }, 400);
         }
       }
 
       // Delete QR code
       if (url.pathname.startsWith("/api/qr/") && request.method === "DELETE") {
-        const code = decodeURIComponent(url.pathname.slice("/api/qr/".length));
+        try {
+          const code = decodeURIComponent(
+            url.pathname.slice("/api/qr/".length)
+          );
 
-        if (!/^[a-zA-Z0-9_-]+$/.test(code)) {
-          return json({ error: "Invalid QR code" }, 400);
-        }
-
-        const response = await fetch(
-          `${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}`,
-          {
-            method: "DELETE",
-            headers: { ...headers, Prefer: "return=minimal" }
+          if (!/^[a-zA-Z0-9_-]+$/.test(code)) {
+            return json({ error: "Invalid QR code" }, 400);
           }
-        );
 
-        if (!response.ok) {
-          return json({ error: "Could not delete QR code" }, 400);
+          const response = await fetch(
+            `${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}`,
+            {
+              method: "DELETE",
+              headers: {
+                ...headers,
+                Prefer: "return=minimal"
+              }
+            }
+          );
+
+          if (!response.ok) {
+            const errorText = await response.text();
+
+            console.error("Supabase delete failed:", response.status, errorText);
+
+            return json({
+              error: `Could not delete QR code (${response.status}): ${errorText}`
+            }, 502);
+          }
+
+          return json({ success: true });
+
+        } catch (error) {
+          console.error("Delete request failed:", error);
+          return json({ error: "Delete request failed" }, 400);
         }
-
-        return json({ success: true });
       }
 
       return json({ error: "API route not found" }, 404);
