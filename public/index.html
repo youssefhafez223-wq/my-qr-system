@@ -1,107 +1,384 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My QR System - Dashboard</title>
+  <title>OVERDOSE QR - Dashboard</title>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: Arial, sans-serif;
-      background: #f4f6fa;
-      color: #172033;
-      padding: 30px;
+      background: #0d1117;
+      color: #f0f3f8;
+      padding: 24px;
     }
 
-    .container {
-      max-width: 1100px;
-      margin: auto;
-    }
-
+    .container { max-width: 1100px; margin: auto; }
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 15px;
-      margin-bottom: 30px;
+      margin-bottom: 28px;
     }
 
-    h1 {
-      font-size: 28px;
-    }
-
-    .subtitle {
-      color: #687386;
-      margin-top: 7px;
-    }
-
+    h1 { font-size: 27px; letter-spacing: 1px; }
+    .subtitle { color: #8b949e; margin-top: 7px; }
     .panel {
-      background: white;
-      padding: 24px;
+      background: #161b22;
+      border: 1px solid #30363d;
       border-radius: 14px;
-      box-shadow: 0 3px 15px #1720330d;
-      margin-bottom: 22px;
+      padding: 22px;
+      margin-bottom: 20px;
     }
 
-    .panel h2 {
-      margin-bottom: 18px;
-      font-size: 20px;
+    h2 { font-size: 19px; margin-bottom: 17px; }
+    .hidden { display: none !important; }
+
+    input {
+      width: 100%;
+      padding: 13px;
+      border-radius: 8px;
+      border: 1px solid #30363d;
+      background: #0d1117;
+      color: white;
+      margin: 8px 0 14px;
+      outline: none;
     }
 
-    .empty {
-      color: #7b8494;
-      text-align: center;
-      padding: 35px 10px;
+    input:focus { border-color: #d4a843; }
+    label { color: #c9d1d9; font-size: 14px; }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 11px 16px;
+      cursor: pointer;
+      font-weight: bold;
+      margin: 4px;
     }
 
-    .status {
-      display: inline-block;
-      background: #fff2d8;
-      color: #946200;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 13px;
+    .primary { background: #d4a843; color: #111; }
+    .secondary { background: #30363d; color: white; }
+    .danger { background: #8e3030; color: white; }
+    .success { background: #176b48; color: white; }
+
+    button:hover { opacity: .85; }
+    .stats {
+      font-size: 28px;
+      font-weight: bold;
+      color: #d4a843;
     }
 
-    @media (max-width: 600px) {
-      body {
-        padding: 16px;
-      }
+    .message { margin: 12px 0; font-size: 14px; color: #d4a843; }
+    .error { color: #ff7777; }
 
-      header {
-        align-items: flex-start;
-        flex-direction: column;
-      }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 650px; }
+    th, td {
+      text-align: left;
+      padding: 14px 10px;
+      border-bottom: 1px solid #30363d;
+      font-size: 14px;
+    }
+
+    th { color: #8b949e; }
+    td { overflow-wrap: anywhere; }
+    .active { color: #3fb950; font-weight: bold; }
+    .inactive { color: #ff7777; font-weight: bold; }
+    .empty { text-align: center; color: #8b949e; padding: 28px; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 2fr auto;
+      align-items: end;
+      gap: 12px;
+    }
+
+    .form-grid input { margin-bottom: 0; }
+    .form-grid button { margin: 8px 0 0; }
+
+    @media(max-width: 700px) {
+      body { padding: 14px; }
+      header { align-items: flex-start; flex-direction: column; }
+      .form-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <main class="container">
+
     <header>
       <div>
-        <h1>My QR System</h1>
-        <p class="subtitle">Manage your dynamic QR codes</p>
+        <h1>OVERDOSE QR</h1>
+        <p class="subtitle">Dynamic QR Management Dashboard</p>
       </div>
-      <span class="status">Dashboard Preview</span>
+      <button id="logoutBtn" class="secondary hidden">Logout</button>
     </header>
 
-    <section class="panel">
-      <h2>Overview</h2>
-      <p>Total QR Codes: <strong>0</strong></p>
+    <section id="loginPanel" class="panel">
+      <h2>Admin Login</h2>
+      <form id="loginForm">
+        <label for="password">Admin Password</label>
+        <input id="password" type="password" placeholder="Enter your password" required>
+        <button class="primary" type="submit">Login</button>
+      </form>
+      <p id="loginMessage" class="message"></p>
     </section>
 
-    <section class="panel">
-      <h2>QR Codes</h2>
-      <div class="empty">
-        <p>No QR codes to display yet.</p>
-      </div>
+    <section id="dashboard" class="hidden">
+
+      <section class="panel">
+        <h2>Overview</h2>
+        <p>Total QR Codes</p>
+        <div id="totalCount" class="stats">0</div>
+      </section>
+
+      <section class="panel">
+        <h2>Add New QR Code</h2>
+        <form id="addForm" class="form-grid">
+          <div>
+            <label for="newCode">QR Code Name</label>
+            <input id="newCode" placeholder="Example: shop123" required>
+          </div>
+          <div>
+            <label for="newUrl">Destination URL</label>
+            <input id="newUrl" type="url" placeholder="https://example.com" required>
+          </div>
+          <button class="primary" type="submit">Add QR</button>
+        </form>
+        <p id="addMessage" class="message"></p>
+      </section>
+
+      <section class="panel">
+        <h2>QR Codes</h2>
+        <p id="listMessage" class="message"></p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Destination</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="qrList">
+              <tr><td colspan="4" class="empty">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </section>
   </main>
+
+<script>
+  const API = "/api";
+  let token = sessionStorage.getItem("overdose_admin_token") || "";
+  let qrCodes = [];
+
+  const loginPanel = document.getElementById("loginPanel");
+  const dashboard = document.getElementById("dashboard");
+  const logoutBtn = document.getElementById("logoutBtn");
+
+  function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    })[char]);
+  }
+
+  async function apiRequest(path, options = {}) {
+    const response = await fetch(API + path, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json"
+      }
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (response.status === 401) {
+      logout();
+      throw new Error("Session expired. Please login again.");
+    }
+
+    if (!response.ok) {
+      throw new Error(data.error || "Request failed");
+    }
+
+    return data;
+  }
+
+  function showDashboard() {
+    loginPanel.classList.add("hidden");
+    dashboard.classList.remove("hidden");
+    logoutBtn.classList.remove("hidden");
+  }
+
+  function logout() {
+    token = "";
+    sessionStorage.removeItem("overdose_admin_token");
+    dashboard.classList.add("hidden");
+    logoutBtn.classList.add("hidden");
+    loginPanel.classList.remove("hidden");
+  }
+
+  document.getElementById("loginForm").addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const message = document.getElementById("loginMessage");
+    message.textContent = "Signing in...";
+    message.className = "message";
+
+    try {
+      const response = await fetch(API + "/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          password: document.getElementById("password").value
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error || "Login failed");
+
+      token = data.token;
+      sessionStorage.setItem("overdose_admin_token", token);
+      document.getElementById("password").value = "";
+      showDashboard();
+      await loadQRs();
+    } catch (error) {
+      message.textContent = error.message;
+      message.className = "message error";
+    }
+  });
+
+  logoutBtn.addEventListener("click", logout);
+
+  async function loadQRs() {
+    const list = document.getElementById("qrList");
+    const message = document.getElementById("listMessage");
+
+    list.innerHTML = '<tr><td colspan="4" class="empty">Loading...</td></tr>';
+    message.textContent = "";
+
+    try {
+      qrCodes = await apiRequest("/qr");
+      renderQRs();
+    } catch (error) {
+      list.innerHTML = '<tr><td colspan="4" class="empty">Could not load QR codes.</td></tr>';
+      message.textContent = error.message;
+      message.className = "message error";
+    }
+  }
+
+  function renderQRs() {
+    const list = document.getElementById("qrList");
+    document.getElementById("totalCount").textContent = qrCodes.length;
+
+    if (!qrCodes.length) {
+      list.innerHTML = '<tr><td colspan="4" class="empty">No QR codes found.</td></tr>';
+      return;
+    }
+
+    list.innerHTML = qrCodes.map(item => `
+      <tr>
+        <td><strong>${escapeHTML(item.code)}</strong></td>
+        <td>${escapeHTML(item.destination_url)}</td>
+        <td class="${item.is_active ? "active" : "inactive"}">
+          ${item.is_active ? "Active" : "Inactive"}
+        </td>
+        <td>
+          <button class="secondary" data-action="edit" data-code="${escapeHTML(item.code)}">Edit URL</button>
+          <button class="${item.is_active ? "danger" : "success"}"
+            data-action="toggle" data-code="${escapeHTML(item.code)}">
+            ${item.is_active ? "Disable" : "Enable"}
+          </button>
+          <button class="danger" data-action="delete" data-code="${escapeHTML(item.code)}">Delete</button>
+        </td>
+      </tr>
+    `).join("");
+  }
+
+  document.getElementById("addForm").addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const message = document.getElementById("addMessage");
+    const code = document.getElementById("newCode").value.trim();
+    const destination_url = document.getElementById("newUrl").value.trim();
+
+    message.textContent = "Adding QR code...";
+    message.className = "message";
+
+    try {
+      await apiRequest("/qr", {
+        method: "POST",
+        body: JSON.stringify({ code, destination_url })
+      });
+
+      document.getElementById("addForm").reset();
+      message.textContent = "QR code added successfully.";
+      await loadQRs();
+    } catch (error) {
+      message.textContent = error.message;
+      message.className = "message error";
+    }
+  });
+
+  document.getElementById("qrList").addEventListener("click", async event => {
+    const button = event.target.closest("button[data-action]");
+    if (!button) return;
+
+    const code = button.dataset.code;
+    const action = button.dataset.action;
+    const item = qrCodes.find(qr => qr.code === code);
+
+    if (!item) return;
+
+    try {
+      if (action === "edit") {
+        const newUrl = prompt("Enter the new destination URL:", item.destination_url);
+        if (newUrl === null) return;
+
+        await apiRequest("/qr/" + encodeURIComponent(code), {
+          method: "PATCH",
+          body: JSON.stringify({ destination_url: newUrl.trim() })
+        });
+      }
+
+      if (action === "toggle") {
+        await apiRequest("/qr/" + encodeURIComponent(code), {
+          method: "PATCH",
+          body: JSON.stringify({ is_active: !item.is_active })
+        });
+      }
+
+      if (action === "delete") {
+        if (!confirm("Are you sure you want to delete QR code " + code + "?")) return;
+
+        await apiRequest("/qr/" + encodeURIComponent(code), {
+          method: "DELETE"
+        });
+      }
+
+      await loadQRs();
+    } catch (error) {
+      alert(error.message);
+    }
+  });
+
+  if (token) {
+    showDashboard();
+    loadQRs();
+  }
+</script>
 </body>
 </html>
