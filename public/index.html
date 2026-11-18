@@ -5,216 +5,506 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>OVERDOSE QR - Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;background:#101014;color:#fff;padding:24px}
-.container{max-width:1100px;margin:auto}
-h1{margin-bottom:8px;color:#f4c542}
-.subtitle{color:#aaa;margin-bottom:25px}
-.panel{background:#1b1b22;border:1px solid #333;border-radius:12px;padding:20px;margin-bottom:20px}
-input{width:100%;padding:12px;margin:8px 0 14px;background:#111;color:white;border:1px solid #444;border-radius:7px}
-button{padding:10px 14px;border:0;border-radius:7px;cursor:pointer;font-weight:bold;margin:3px}
-.primary{background:#f4c542;color:#111}
-.secondary{background:#333;color:#fff}
-.danger{background:#a83232;color:#fff}
-.success{background:#247a4b;color:#fff}
-.hidden{display:none}
-table{width:100%;border-collapse:collapse;margin-top:15px}
-th,td{padding:13px 10px;border-bottom:1px solid #333;text-align:left;overflow-wrap:anywhere}
-th{color:#f4c542}
-.status{font-weight:bold}
-#message{margin:12px 0;color:#f4c542}
-#qrModal{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;padding:20px}
-.modalContent{background:#fff;color:#111;padding:25px;border-radius:12px;text-align:center;max-width:340px;width:100%}
-#qrcode{display:flex;justify-content:center;margin:20px}
-@media(max-width:650px){body{padding:12px}.panel{padding:14px}table{font-size:12px}th,td{padding:9px 5px}button{font-size:11px;padding:8px}}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background: #101014;
+  color: #fff;
+  padding: 24px;
+}
+
+.container {
+  max-width: 1100px;
+  margin: auto;
+}
+
+h1 {
+  margin-bottom: 8px;
+  color: #f4c542;
+}
+
+.subtitle {
+  color: #aaa;
+  margin-bottom: 25px;
+}
+
+.panel {
+  background: #1b1b22;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  margin: 8px 0 14px;
+  background: #111;
+  color: white;
+  border: 1px solid #444;
+  border-radius: 7px;
+}
+
+button {
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  font-weight: bold;
+  margin: 3px;
+}
+
+.primary {
+  background: #f4c542;
+  color: #111;
+}
+
+.secondary {
+  background: #333;
+  color: #fff;
+}
+
+.danger {
+  background: #a83232;
+  color: #fff;
+}
+
+.success {
+  background: #247a4b;
+  color: #fff;
+}
+
+.hidden {
+  display: none;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+th, td {
+  padding: 13px 10px;
+  border-bottom: 1px solid #333;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+th {
+  color: #f4c542;
+}
+
+.status {
+  font-weight: bold;
+}
+
+#message {
+  margin: 12px 0;
+  color: #f4c542;
+}
+
+#qrModal {
+  position: fixed;
+  inset: 0;
+  background: #000c;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 999;
+}
+
+.modalContent {
+  background: #fff;
+  color: #111;
+  padding: 25px;
+  border-radius: 12px;
+  text-align: center;
+  max-width: 340px;
+  width: 100%;
+}
+
+#qrcode {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px auto;
+  background: #fff;
+  padding: 10px;
+}
+
+#qrcode canvas,
+#qrcode img {
+  display: block;
+  max-width: 220px;
+  width: 100%;
+  height: auto;
+}
+
+@media(max-width:650px) {
+  body {
+    padding: 12px;
+  }
+
+  .panel {
+    padding: 14px;
+  }
+
+  table {
+    font-size: 12px;
+  }
+
+  th, td {
+    padding: 9px 5px;
+  }
+
+  button {
+    font-size: 11px;
+    padding: 8px;
+  }
+}
 </style>
 </head>
+
 <body>
+
 <div class="container">
+
 <h1>OVERDOSE QR</h1>
 <p class="subtitle">Dynamic QR Management Dashboard</p>
 
 <div id="loginPanel" class="panel">
-<h2>Admin Login</h2>
-<input id="password" type="password" placeholder="Admin Password">
-<button class="primary" onclick="login()">Login</button>
+  <h2>Admin Login</h2>
+  <input id="password" type="password" placeholder="Admin Password">
+  <button class="primary" onclick="login()">Login</button>
 </div>
 
 <div id="dashboard" class="hidden">
-<div class="panel">
-<h2>Dashboard Overview</h2>
-<p>Total QR Codes: <strong id="total">0</strong></p>
-<button class="secondary" onclick="logout()">Logout</button>
-</div>
 
-<div class="panel">
-<h2>Add New QR Code</h2>
-<input id="newCode" placeholder="QR Code ID (example: shop001)">
-<input id="newUrl" type="url" placeholder="Destination URL">
-<button class="primary" onclick="addQR()">Add QR Code</button>
-</div>
+  <div class="panel">
+    <h2>Dashboard Overview</h2>
+    <p>Total QR Codes: <strong id="total">0</strong></p>
+    <button class="secondary" onclick="logout()">Logout</button>
+  </div>
 
-<div class="panel">
-<h2>QR Codes</h2>
-<div id="message"></div>
-<div style="overflow-x:auto">
-<table>
-<thead><tr><th>Code</th><th>Destination</th><th>Status</th><th>Actions</th></tr></thead>
-<tbody id="qrList"></tbody>
-</table>
-</div>
-</div>
+  <div class="panel">
+    <h2>Add New QR Code</h2>
+    <input id="newCode" placeholder="QR Code ID (example: shop001)">
+    <input id="newUrl" type="url" placeholder="Destination URL">
+    <button class="primary" onclick="addQR()">Add QR Code</button>
+  </div>
+
+  <div class="panel">
+    <h2>QR Codes</h2>
+    <div id="message"></div>
+
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Destination</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="qrList"></tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 </div>
 
 <div id="qrModal">
-<div class="modalContent">
-<h3>OVERDOSE QR</h3>
-<div id="qrcode"></div>
-<p id="qrAddress" style="font-size:12px;overflow-wrap:anywhere"></p>
-<button class="primary" onclick="downloadQR()">Download PNG</button>
-<button class="secondary" onclick="closeQR()">Close</button>
-</div>
+  <div class="modalContent">
+    <h3>OVERDOSE QR</h3>
+    <div id="qrcode"></div>
+    <p id="qrAddress" style="font-size:12px;overflow-wrap:anywhere"></p>
+    <button class="primary" onclick="downloadQR()">Download PNG</button>
+    <button class="secondary" onclick="closeQR()">Close</button>
+  </div>
 </div>
 
 <script>
-let token="";
-let currentQR="";
+let token = "";
+let currentQR = "";
 
-async function api(path,method="GET",body=null){
- const options={method,headers:{"Content-Type":"application/json","Authorization":"Bearer "+token}};
- if(body) options.body=JSON.stringify(body);
- const response=await fetch(path,options);
- const data=await response.json();
- if(!response.ok) throw new Error(data.error||"Request failed");
- return data;
+async function api(path, method = "GET", body = null) {
+  const options = {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    }
+  };
+
+  if (body) {
+    options.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(path, options);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Request failed");
+  }
+
+  return data;
 }
 
-async function login(){
- try{
-  const response=await fetch("/api/login",{
-   method:"POST",
-   headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({password:document.getElementById("password").value})
+async function login() {
+  try {
+    const response = await fetch("/api/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        password: document.getElementById("password").value
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Login failed");
+    }
+
+    token = data.token;
+
+    document.getElementById("loginPanel").classList.add("hidden");
+    document.getElementById("dashboard").classList.remove("hidden");
+
+    await loadQR();
+
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+function logout() {
+  token = "";
+
+  document.getElementById("dashboard").classList.add("hidden");
+  document.getElementById("loginPanel").classList.remove("hidden");
+}
+
+async function loadQR() {
+  try {
+    const data = await api("/api/qr");
+    const items = Array.isArray(data)
+      ? data
+      : (data.qr_codes || data.data || []);
+
+    document.getElementById("total").textContent = items.length;
+
+    const list = document.getElementById("qrList");
+    list.innerHTML = "";
+
+    items.forEach(item => {
+      const tr = document.createElement("tr");
+
+      const code = document.createElement("td");
+      code.textContent = item.code;
+
+      const url = document.createElement("td");
+      url.textContent = item.destination_url;
+
+      const status = document.createElement("td");
+      status.textContent = item.is_active ? "Active" : "Disabled";
+      status.className = "status";
+
+      const actions = document.createElement("td");
+
+      const qrBtn = document.createElement("button");
+      qrBtn.className = "primary";
+      qrBtn.textContent = "Generate QR";
+      qrBtn.onclick = () => showQR(item.code);
+
+      const editBtn = document.createElement("button");
+      editBtn.className = "secondary";
+      editBtn.textContent = "Edit URL";
+      editBtn.onclick = () => editQR(item.code, item.destination_url);
+
+      const toggleBtn = document.createElement("button");
+      toggleBtn.className = "success";
+      toggleBtn.textContent = item.is_active ? "Disable" : "Enable";
+      toggleBtn.onclick = () => toggleQR(item.code, item.is_active);
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "danger";
+      deleteBtn.textContent = "Delete";
+      deleteBtn.onclick = () => deleteQR(item.code);
+
+      actions.append(qrBtn, editBtn, toggleBtn, deleteBtn);
+      tr.append(code, url, status, actions);
+      list.appendChild(tr);
+    });
+
+  } catch (e) {
+    document.getElementById("message").textContent = e.message;
+  }
+}
+
+async function addQR() {
+  const code = document.getElementById("newCode").value.trim();
+  const url = document.getElementById("newUrl").value.trim();
+
+  if (!code || !url) {
+    return alert("Enter code and URL");
+  }
+
+  try {
+    await api("/api/qr", "POST", {
+      code,
+      destination_url: url
+    });
+
+    document.getElementById("newCode").value = "";
+    document.getElementById("newUrl").value = "";
+
+    document.getElementById("message").textContent =
+      "QR added successfully";
+
+    await loadQR();
+
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function editQR(code, oldUrl) {
+  const url = prompt("Enter the new destination URL:", oldUrl);
+
+  if (!url) return;
+
+  try {
+    await api(
+      "/api/qr/" + encodeURIComponent(code),
+      "PATCH",
+      { destination_url: url }
+    );
+
+    await loadQR();
+
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function toggleQR(code, isActive) {
+  try {
+    await api(
+      "/api/qr/" + encodeURIComponent(code),
+      "PATCH",
+      { is_active: !isActive }
+    );
+
+    await loadQR();
+
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function deleteQR(code) {
+  if (!confirm("Permanently delete this QR code?")) return;
+
+  try {
+    await api(
+      "/api/qr/" + encodeURIComponent(code),
+      "DELETE"
+    );
+
+    await loadQR();
+
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+/* HIGH RESOLUTION QR GENERATOR */
+
+function showQR(code) {
+  currentQR = code;
+
+  const address =
+    location.origin + "/r/" + encodeURIComponent(code);
+
+  const container = document.getElementById("qrcode");
+
+  container.innerHTML = "";
+
+  document.getElementById("qrAddress").textContent = address;
+
+  new QRCode(container, {
+    text: address,
+    width: 1200,
+    height: 1200,
+    correctLevel: QRCode.CorrectLevel.H
   });
-  const data=await response.json();
-  if(!response.ok) throw new Error(data.error||"Login failed");
-  token=data.token;
-  document.getElementById("loginPanel").classList.add("hidden");
-  document.getElementById("dashboard").classList.remove("hidden");
-  await loadQR();
- }catch(e){alert(e.message)}
+
+  document.getElementById("qrModal").style.display = "flex";
 }
 
-function logout(){
- token="";
- document.getElementById("dashboard").classList.add("hidden");
- document.getElementById("loginPanel").classList.remove("hidden");
+function closeQR() {
+  document.getElementById("qrModal").style.display = "none";
 }
 
-async function loadQR(){
- try{
-  const data=await api("/api/qr");
-  const items=Array.isArray(data)?data:(data.qr_codes||data.data||[]);
-  document.getElementById("total").textContent=items.length;
-  const list=document.getElementById("qrList");
-  list.innerHTML="";
-  items.forEach(item=>{
-   const tr=document.createElement("tr");
-   const code=document.createElement("td");code.textContent=item.code;
-   const url=document.createElement("td");url.textContent=item.destination_url;
-   const status=document.createElement("td");
-   status.textContent=item.is_active?"Active":"Disabled";
-   status.className="status";
-   const actions=document.createElement("td");
+/* HIGH QUALITY PNG DOWNLOAD WITH WHITE QUIET ZONE */
 
-   const qrBtn=document.createElement("button");
-   qrBtn.className="primary";qrBtn.textContent="Generate QR";
-   qrBtn.onclick=()=>showQR(item.code);
+function downloadQR() {
+  const sourceCanvas = document.querySelector("#qrcode canvas");
 
-   const editBtn=document.createElement("button");
-   editBtn.className="secondary";editBtn.textContent="Edit URL";
-   editBtn.onclick=()=>editQR(item.code,item.destination_url);
+  if (!sourceCanvas) {
+    return alert("QR is not ready yet");
+  }
 
-   const toggleBtn=document.createElement("button");
-   toggleBtn.className="success";toggleBtn.textContent=item.is_active?"Disable":"Enable";
-   toggleBtn.onclick=()=>toggleQR(item.code,item.is_active);
+  const padding = 80;
 
-   const deleteBtn=document.createElement("button");
-   deleteBtn.className="danger";deleteBtn.textContent="Delete";
-   deleteBtn.onclick=()=>deleteQR(item.code);
+  const outputCanvas = document.createElement("canvas");
 
-   actions.append(qrBtn,editBtn,toggleBtn,deleteBtn);
-   tr.append(code,url,status,actions);
-   list.appendChild(tr);
-  });
- }catch(e){document.getElementById("message").textContent=e.message}
-}
+  outputCanvas.width = sourceCanvas.width + padding * 2;
+  outputCanvas.height = sourceCanvas.height + padding * 2;
 
-async function addQR(){
- const code=document.getElementById("newCode").value.trim();
- const url=document.getElementById("newUrl").value.trim();
- if(!code||!url)return alert("Enter code and URL");
- try{
-  await api("/api/qr","POST",{code,destination_url:url});
-  document.getElementById("newCode").value="";
-  document.getElementById("newUrl").value="";
-  document.getElementById("message").textContent="QR added successfully";
-  await loadQR();
- }catch(e){alert(e.message)}
-}
+  const context = outputCanvas.getContext("2d");
 
-async function editQR(code,oldUrl){
- const url=prompt("Enter the new destination URL:",oldUrl);
- if(!url)return;
- try{
-  await api("/api/qr/"+encodeURIComponent(code),"PATCH",{destination_url:url});
-  await loadQR();
- }catch(e){alert(e.message)}
-}
+  context.fillStyle = "#ffffff";
 
-async function toggleQR(code,isActive){
- try{
-  await api("/api/qr/"+encodeURIComponent(code),"PATCH",{is_active:!isActive});
-  await loadQR();
- }catch(e){alert(e.message)}
-}
+  context.fillRect(
+    0,
+    0,
+    outputCanvas.width,
+    outputCanvas.height
+  );
 
-async function deleteQR(code){
- if(!confirm("Permanently delete this QR code?"))return;
- try{
-  await api("/api/qr/"+encodeURIComponent(code),"DELETE");
-  await loadQR();
- }catch(e){alert(e.message)}
-}
+  context.drawImage(
+    sourceCanvas,
+    padding,
+    padding,
+    sourceCanvas.width,
+    sourceCanvas.height
+  );
 
-function showQR(code){
- currentQR=code;
- const address=location.origin+"/r/"+encodeURIComponent(code);
- document.getElementById("qrcode").innerHTML="";
- document.getElementById("qrAddress").textContent=address;
- new QRCode(document.getElementById("qrcode"),{
-  text:address,width:220,height:220,
-  correctLevel:QRCode.CorrectLevel.H
- });
- document.getElementById("qrModal").style.display="flex";
-}
+  const link = document.createElement("a");
 
-function closeQR(){
- document.getElementById("qrModal").style.display="none";
-}
+  link.download = "OVERDOSE-QR-" + currentQR + ".png";
 
-function downloadQR(){
- const canvas=document.querySelector("#qrcode canvas");
- const img=document.querySelector("#qrcode img");
- const source=canvas||img;
- if(!source)return alert("QR is not ready yet");
- const link=document.createElement("a");
- link.download="OVERDOSE-QR-"+currentQR+".png";
- link.href=canvas?canvas.toDataURL("image/png"):img.src;
- link.click();
+  link.href = outputCanvas.toDataURL("image/png");
+
+  link.click();
 }
 </script>
+
 </body>
 </html>
