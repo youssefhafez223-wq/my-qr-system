@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OVERDOSE QR - Dashboard</title>
+
+<title>QROMA - Dashboard</title>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <style>
@@ -179,12 +181,18 @@ th {
 
 <div class="container">
 
-<h1>You QR</h1>
+<h1>QROMA</h1>
 <p class="subtitle">Dynamic QR Management Dashboard</p>
 
 <div id="loginPanel" class="panel">
   <h2>Admin Login</h2>
-  <input id="password" type="password" placeholder="Admin Password">
+
+  <input
+    id="password"
+    type="password"
+    placeholder="Admin Password"
+  >
+
   <button class="primary" onclick="login()">Login</button>
 </div>
 
@@ -192,19 +200,35 @@ th {
 
   <div class="panel">
     <h2>Dashboard Overview</h2>
-    <p>Total QR Codes: <strong id="total">0</strong></p>
+
+    <p>
+      Total QR Codes:
+      <strong id="total">0</strong>
+    </p>
+
     <button class="secondary" onclick="logout()">Logout</button>
   </div>
 
   <div class="panel">
     <h2>Add New QR Code</h2>
-    <input id="newCode" placeholder="QR Code ID (example: shop001)">
-    <input id="newUrl" type="url" placeholder="Destination URL">
+
+    <input
+      id="newCode"
+      placeholder="QR Code ID (example: shop001)"
+    >
+
+    <input
+      id="newUrl"
+      type="url"
+      placeholder="Destination URL"
+    >
+
     <button class="primary" onclick="addQR()">Add QR Code</button>
   </div>
 
   <div class="panel">
     <h2>QR Codes</h2>
+
     <div id="message"></div>
 
     <div style="overflow-x:auto">
@@ -217,6 +241,7 @@ th {
             <th>Actions</th>
           </tr>
         </thead>
+
         <tbody id="qrList"></tbody>
       </table>
     </div>
@@ -227,21 +252,37 @@ th {
 
 <div id="qrModal">
   <div class="modalContent">
-    <h3>You QR</h3>
+
+    <h3>QROMA</h3>
+
     <div id="qrcode"></div>
-    <p id="qrAddress" style="font-size:12px;overflow-wrap:anywhere"></p>
-    <button class="primary" onclick="downloadQR()">Download PNG</button>
-    <button class="secondary" onclick="closeQR()">Close</button>
+
+    <p
+      id="qrAddress"
+      style="font-size:12px;overflow-wrap:anywhere"
+    ></p>
+
+    <button class="primary" onclick="downloadQR()">
+      Download PNG
+    </button>
+
+    <button class="secondary" onclick="closeQR()">
+      Close
+    </button>
+
   </div>
 </div>
 
 <script>
+
 let token = "";
 let currentQR = "";
 
 async function api(path, method = "GET", body = null) {
+
   const options = {
     method,
+
     headers: {
       "Content-Type": "application/json",
       "Authorization": "Bearer " + token
@@ -263,12 +304,16 @@ async function api(path, method = "GET", body = null) {
 }
 
 async function login() {
+
   try {
+
     const response = await fetch("/api/login", {
       method: "POST",
+
       headers: {
         "Content-Type": "application/json"
       },
+
       body: JSON.stringify({
         password: document.getElementById("password").value
       })
@@ -283,25 +328,33 @@ async function login() {
     token = data.token;
 
     document.getElementById("loginPanel").classList.add("hidden");
+
     document.getElementById("dashboard").classList.remove("hidden");
 
     await loadQR();
 
   } catch (e) {
+
     alert(e.message);
+
   }
 }
 
 function logout() {
+
   token = "";
 
   document.getElementById("dashboard").classList.add("hidden");
+
   document.getElementById("loginPanel").classList.remove("hidden");
 }
 
 async function loadQR() {
+
   try {
+
     const data = await api("/api/qr");
+
     const items = Array.isArray(data)
       ? data
       : (data.qr_codes || data.data || []);
@@ -309,9 +362,11 @@ async function loadQR() {
     document.getElementById("total").textContent = items.length;
 
     const list = document.getElementById("qrList");
+
     list.innerHTML = "";
 
     items.forEach(item => {
+
       const tr = document.createElement("tr");
 
       const code = document.createElement("td");
@@ -321,43 +376,58 @@ async function loadQR() {
       url.textContent = item.destination_url;
 
       const status = document.createElement("td");
+
       status.textContent = item.is_active ? "Active" : "Disabled";
+
       status.className = "status";
 
       const actions = document.createElement("td");
 
       const qrBtn = document.createElement("button");
+
       qrBtn.className = "primary";
       qrBtn.textContent = "Generate QR";
       qrBtn.onclick = () => showQR(item.code);
 
       const editBtn = document.createElement("button");
+
       editBtn.className = "secondary";
       editBtn.textContent = "Edit URL";
       editBtn.onclick = () => editQR(item.code, item.destination_url);
 
       const toggleBtn = document.createElement("button");
+
       toggleBtn.className = "success";
+
       toggleBtn.textContent = item.is_active ? "Disable" : "Enable";
+
       toggleBtn.onclick = () => toggleQR(item.code, item.is_active);
 
       const deleteBtn = document.createElement("button");
+
       deleteBtn.className = "danger";
       deleteBtn.textContent = "Delete";
       deleteBtn.onclick = () => deleteQR(item.code);
 
       actions.append(qrBtn, editBtn, toggleBtn, deleteBtn);
+
       tr.append(code, url, status, actions);
+
       list.appendChild(tr);
+
     });
 
   } catch (e) {
+
     document.getElementById("message").textContent = e.message;
+
   }
 }
 
 async function addQR() {
+
   const code = document.getElementById("newCode").value.trim();
+
   const url = document.getElementById("newUrl").value.trim();
 
   if (!code || !url) {
@@ -365,12 +435,14 @@ async function addQR() {
   }
 
   try {
+
     await api("/api/qr", "POST", {
       code,
       destination_url: url
     });
 
     document.getElementById("newCode").value = "";
+
     document.getElementById("newUrl").value = "";
 
     document.getElementById("message").textContent =
@@ -379,16 +451,20 @@ async function addQR() {
     await loadQR();
 
   } catch (e) {
+
     alert(e.message);
+
   }
 }
 
 async function editQR(code, oldUrl) {
+
   const url = prompt("Enter the new destination URL:", oldUrl);
 
   if (!url) return;
 
   try {
+
     await api(
       "/api/qr/" + encodeURIComponent(code),
       "PATCH",
@@ -398,12 +474,16 @@ async function editQR(code, oldUrl) {
     await loadQR();
 
   } catch (e) {
+
     alert(e.message);
+
   }
 }
 
 async function toggleQR(code, isActive) {
+
   try {
+
     await api(
       "/api/qr/" + encodeURIComponent(code),
       "PATCH",
@@ -413,14 +493,18 @@ async function toggleQR(code, isActive) {
     await loadQR();
 
   } catch (e) {
+
     alert(e.message);
+
   }
 }
 
 async function deleteQR(code) {
+
   if (!confirm("Permanently delete this QR code?")) return;
 
   try {
+
     await api(
       "/api/qr/" + encodeURIComponent(code),
       "DELETE"
@@ -429,13 +513,16 @@ async function deleteQR(code) {
     await loadQR();
 
   } catch (e) {
+
     alert(e.message);
+
   }
 }
 
 /* HIGH RESOLUTION QR GENERATOR */
 
 function showQR(code) {
+
   currentQR = code;
 
   const address =
@@ -458,12 +545,14 @@ function showQR(code) {
 }
 
 function closeQR() {
+
   document.getElementById("qrModal").style.display = "none";
 }
 
 /* HIGH QUALITY PNG DOWNLOAD WITH WHITE QUIET ZONE */
 
 function downloadQR() {
+
   const sourceCanvas = document.querySelector("#qrcode canvas");
 
   if (!sourceCanvas) {
@@ -475,6 +564,7 @@ function downloadQR() {
   const outputCanvas = document.createElement("canvas");
 
   outputCanvas.width = sourceCanvas.width + padding * 2;
+
   outputCanvas.height = sourceCanvas.height + padding * 2;
 
   const context = outputCanvas.getContext("2d");
@@ -498,13 +588,14 @@ function downloadQR() {
 
   const link = document.createElement("a");
 
-  link.download = "OVERDOSE-QR-" + currentQR + ".png";
+  link.download = "QROMA-" + currentQR + ".png";
 
   link.href = outputCanvas.toDataURL("image/png");
 
   link.click();
 }
+
 </script>
 
 </body>
-</html>
+  </html>
