@@ -183,7 +183,7 @@ export default {
       }
     };
 
-    // Admin login
+    // Admin login with failed-attempt rate limiting
     if (url.pathname === "/api/login" && request.method === "POST") {
       try {
         const body = await request.json();
@@ -193,11 +193,32 @@ export default {
         }
 
         if (body.password !== env.ADMIN_PASSWORD) {
+          try {
+            const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+
+            const { success } = await env.LOGIN_RATE_LIMITER.limit({
+              key: ip
+            });
+
+            if (!success) {
+              return json({
+                error: "Too many failed attempts. Please wait about 60 seconds and try again."
+              }, 429);
+            }
+          } catch (error) {
+            console.error("Login rate limiter error:", error);
+
+            return json({
+              error: "Login protection is temporarily unavailable. Please try again later."
+            }, 503);
+          }
+
           return json({ error: "Wrong password" }, 401);
         }
 
         return json({ token: await createToken() });
-      } catch {
+      } catch (error) {
+        console.error("Login failed:", error);
         return json({ error: "Login failed" }, 400);
       }
     }
@@ -220,6 +241,7 @@ export default {
         "Content-Type": "application/json",
         Accept: "application/json"
       };
+
       // List QR codes with scan statistics
       if (url.pathname === "/api/qr" && request.method === "GET") {
         try {
@@ -280,7 +302,7 @@ export default {
           return json({ error: "Could not connect to Supabase" }, 502);
         }
       }
-    
+
       // Add QR code
       if (url.pathname === "/api/qr" && request.method === "POST") {
         try {
