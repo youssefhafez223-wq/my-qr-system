@@ -220,8 +220,7 @@ export default {
         "Content-Type": "application/json",
         Accept: "application/json"
       };
-
-      // List QR codes
+      // List QR codes with scan statistics
       if (url.pathname === "/api/qr" && request.method === "GET") {
         try {
           const response = await fetch(
@@ -238,13 +237,50 @@ export default {
             }, 502);
           }
 
-          return json(await response.json());
+          const items = await response.json();
+
+          try {
+            const statsResponse = await fetch(
+              `${supabaseUrl}/rest/v1/qr_scan_stats?select=code,scan_count,last_scanned_at`,
+              { headers }
+            );
+
+            if (statsResponse.ok) {
+              const stats = await statsResponse.json();
+              const statsByCode = new Map(
+                stats.map(item => [item.code, item])
+              );
+
+              return json(items.map(item => {
+                const stat = statsByCode.get(item.code);
+                return {
+                  ...item,
+                  scan_count: stat ? Number(stat.scan_count) : 0,
+                  last_scanned_at: stat ? stat.last_scanned_at : null
+                };
+              }));
+            }
+
+            console.error(
+              "Supabase scan stats unavailable:",
+              statsResponse.status,
+              await statsResponse.text()
+            );
+          } catch (statsError) {
+            console.error("Scan stats request failed:", statsError);
+          }
+
+          return json(items.map(item => ({
+            ...item,
+            scan_count: null,
+            last_scanned_at: null
+          })));
         } catch (error) {
           console.error("List request failed:", error);
           return json({ error: "Could not connect to Supabase" }, 502);
         }
       }
-
+    
       // Add QR code
       if (url.pathname === "/api/qr" && request.method === "POST") {
         try {
