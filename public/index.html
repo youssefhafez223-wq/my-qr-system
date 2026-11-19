@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -207,6 +208,11 @@ th {
       <strong id="total">0</strong>
     </p>
 
+    <p style="margin-top: 12px;">
+      Total Scans:
+      <strong id="totalScans">0</strong>
+    </p>
+
     <button class="secondary" onclick="logout()">Logout</button>
   </div>
 
@@ -363,6 +369,13 @@ async function loadQR() {
       : (data.qr_codes || data.data || []);
 
     document.getElementById("total").textContent = items.length;
+
+    const totalScans = items.reduce(
+      (sum, item) => sum + (Number(item.scan_count) || 0),
+      0
+    );
+
+    document.getElementById("totalScans").textContent = totalScans;
 
     const list = document.getElementById("qrList");
 
