@@ -11,6 +11,9 @@ binding = "ASSETS"
 [vars]
 SUPABASE_URL = "https://uzsikhbkeophujpeuvjk.supabase.co"
 
+[previews.vars]
+SUPABASE_URL = "https://uzsikhbkeophujpeuvjk.supabase.co"
+
 [observability]
 enabled = true
 head_sampling_rate = 1
