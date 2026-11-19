@@ -1,5 +1,5 @@
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     // Dashboard
@@ -20,8 +20,10 @@ export default {
           return new Response("Service unavailable", { status: 503 });
         }
 
+        const supabaseUrl = env.SUPABASE_URL.replace(/\/+$/, "");
+
         const response = await fetch(
-          `${env.SUPABASE_URL.replace(/\/+$/, "")}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}&select=destination_url,is_active&limit=1`,
+          `${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}&select=destination_url,is_active&limit=1`,
           {
             headers: {
               apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -47,6 +49,29 @@ export default {
         if (!["https:", "http:"].includes(destination.protocol)) {
           return new Response("Invalid destination", { status: 400 });
         }
+
+        // Record QR scan in the background
+        ctx.waitUntil(
+          fetch(
+            `${supabaseUrl}/rest/v1/qr_scans`,
+            {
+              method: "POST",
+              headers: {
+                apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+                Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+                "Content-Type": "application/json",
+                Prefer: "return=minimal"
+              },
+              body: JSON.stringify({ code })
+            }
+          ).then(response => {
+            if (!response.ok) {
+              console.error("QR scan logging failed:", response.status);
+            }
+          }).catch(error => {
+            console.error("QR scan logging error:", error);
+          })
+        );
 
         return Response.redirect(destination.toString(), 302);
       } catch {
@@ -323,7 +348,7 @@ export default {
               return json({ error: "Invalid destination URL" }, 400);
             }
 
-            if (!["http:", "https:"].includes(destination.protocol)) {
+            if (!["https:", "http:"].includes(destination.protocol)) {
               return json({ error: "Invalid destination URL" }, 400);
             }
 
