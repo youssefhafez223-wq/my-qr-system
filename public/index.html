@@ -92,6 +92,7 @@ table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 15px;
+  min-width: 850px;
 }
 
 th, td {
@@ -238,6 +239,8 @@ th {
             <th>Code</th>
             <th>Destination</th>
             <th>Status</th>
+            <th>Scan Count</th>
+            <th>Last Scanned</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -381,6 +384,17 @@ async function loadQR() {
 
       status.className = "status";
 
+      // Scan Count
+      const scans = document.createElement("td");
+      scans.textContent = item.scan_count ?? "—";
+
+      // Last Scanned
+      const lastScanned = document.createElement("td");
+
+      lastScanned.textContent = item.last_scanned_at
+        ? new Date(item.last_scanned_at).toLocaleString()
+        : "Never";
+
       const actions = document.createElement("td");
 
       const qrBtn = document.createElement("button");
@@ -411,7 +425,7 @@ async function loadQR() {
 
       actions.append(qrBtn, editBtn, toggleBtn, deleteBtn);
 
-      tr.append(code, url, status, actions);
+      tr.append(code, url, status, scans, lastScanned, actions);
 
       list.appendChild(tr);
 
@@ -598,4 +612,4 @@ function downloadQR() {
 </script>
 
 </body>
-  </html>
+</html>
