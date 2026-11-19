@@ -7,3 +7,10 @@ workers_dev = true
 [assets]
 directory = "./public"
 binding = "ASSETS"
+
+[vars]
+SUPABASE_URL = "https://uzsikhbkeophujpeuvjk.supabase.co"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
