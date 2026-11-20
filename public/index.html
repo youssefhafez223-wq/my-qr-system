@@ -636,10 +636,10 @@ async function deleteQR(code) {
 
 
 function showSection(section) {
-  document.getElementById("dashboardMain").classList.toggle("hidden", section !== "dashboardMain");
-  document.getElementById("shopsPanel").classList.add("hidden");
-  document.getElementById("scannerPanel").classList.add("hidden");
-  if (section === "dashboardMain") stopScanner();
+  ["dashboardMain", "shopsPanel", "scannerPanel"].forEach(id => {
+    document.getElementById(id).classList.toggle("hidden", id !== section);
+  });
+  if (section !== "scannerPanel") stopScanner();
 }
 
 async function openShops() {
