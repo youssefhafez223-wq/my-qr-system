@@ -25,3 +25,11 @@ namespace_id = "2026112001"
 [ratelimits.simple]
 limit = 3
 period = 60
+
+[[previews.ratelimits]]
+name = "LOGIN_RATE_LIMITER"
+namespace_id = "2026112002"
+
+[previews.ratelimits.simple]
+limit = 3
+period = 60
