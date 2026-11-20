@@ -308,11 +308,7 @@ export default {
           const body = await request.json();
           const name = String(body.name || "").trim();
           if (!name || name.length > 100) return json({ error: "Enter a shop name (up to 100 characters)" }, 400);
-          const baseSlug = String(body.slug || name).trim().toLowerCase()
-            .normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "")
-            .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
-          if (!baseSlug) return json({ error: "Invalid shop name" }, 400);
-          const slug = `${baseSlug}-${crypto.randomUUID().slice(0, 6)}`;
+          const slug = "shop-" + crypto.randomUUID().slice(0, 8);
           const response = await fetch(`${supabaseUrl}/rest/v1/stores`, {
             method: "POST",
             headers: { ...headers, Prefer: "return=representation" },
