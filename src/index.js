@@ -1,3 +1,61 @@
+import { DurableObject } from "cloudflare:workers";
+
+export class LoginRateLimiter extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+    ctx.blockConcurrencyWhile(async () => {
+      ctx.storage.sql.exec(`
+        CREATE TABLE IF NOT EXISTS login_state (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          failed_attempts INTEGER NOT NULL DEFAULT 0,
+          locked_until INTEGER NOT NULL DEFAULT 0
+        )
+      `);
+    });
+  }
+
+  async check(passwordIsValid) {
+    const now = Date.now();
+    const rows = this.ctx.storage.sql.exec(
+      "SELECT failed_attempts, locked_until FROM login_state WHERE id = 1"
+    ).toArray();
+    const state = rows[0] || { failed_attempts: 0, locked_until: 0 };
+
+    if (state.locked_until > now) {
+      return {
+        allowed: false,
+        locked: true,
+        retryAfter: Math.max(1, Math.ceil((state.locked_until - now) / 1000))
+      };
+    }
+
+    if (passwordIsValid) {
+      this.ctx.storage.sql.exec("DELETE FROM login_state WHERE id = 1");
+      return { allowed: true, locked: false, retryAfter: 0 };
+    }
+
+    const failedAttempts = state.locked_until > 0 ? 1 : state.failed_attempts + 1;
+    const lockedUntil = failedAttempts >= 3 ? now + 60_000 : 0;
+    const savedFailures = lockedUntil > 0 ? 0 : failedAttempts;
+
+    this.ctx.storage.sql.exec(
+      `INSERT INTO login_state (id, failed_attempts, locked_until)
+       VALUES (1, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         failed_attempts = excluded.failed_attempts,
+         locked_until = excluded.locked_until`,
+      savedFailures,
+      lockedUntil
+    );
+
+    return {
+      allowed: false,
+      locked: lockedUntil > now,
+      retryAfter: lockedUntil > now ? 60 : 0
+    };
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -192,27 +250,17 @@ export default {
           return json({ error: "Admin password is not configured" }, 500);
         }
 
-        if (body.password !== env.ADMIN_PASSWORD) {
-          try {
-            const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+        const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+        const loginGuard = env.LOGIN_GUARD.getByName(ip);
+        const decision = await loginGuard.check(body.password === env.ADMIN_PASSWORD);
 
-            const { success } = await env.LOGIN_RATE_LIMITER.limit({
-              key: ip
-            });
+        if (decision.locked) {
+          return json({
+            error: `Too many failed attempts. Please wait ${decision.retryAfter} seconds and try again.`
+          }, 429);
+        }
 
-            if (!success) {
-              return json({
-                error: "Too many failed attempts. Please wait about 60 seconds and try again."
-              }, 429);
-            }
-          } catch (error) {
-            console.error("Login rate limiter error:", error);
-
-            return json({
-              error: "Login protection is temporarily unavailable. Please try again later."
-            }, 503);
-          }
-
+        if (!decision.allowed) {
           return json({ error: "Wrong password" }, 401);
         }
 
