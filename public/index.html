@@ -762,7 +762,7 @@ async function lookupScannedCode() {
   let code = raw;
   try {
     const parsed = new URL(raw);
-    const match = parsed.pathname.match(/\\/r\\/([^/]+)/);
+    const match = parsed.pathname.match(/\/r\/([^/]+)/);
     if (match) code = decodeURIComponent(match[1]);
   } catch {}
   try {
