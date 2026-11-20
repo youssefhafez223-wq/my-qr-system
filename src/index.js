@@ -290,11 +290,99 @@ export default {
         Accept: "application/json"
       };
 
+      
+      // Shop management
+      if (url.pathname === "/api/stores" && request.method === "GET") {
+        try {
+          const response = await fetch(`${supabaseUrl}/rest/v1/stores?select=id,name,slug,created_at&order=name.asc`, { headers });
+          if (!response.ok) return json({ error: "Could not load shops" }, 502);
+          return json(await response.json());
+        } catch (error) {
+          console.error("List shops failed:", error);
+          return json({ error: "Could not load shops" }, 502);
+        }
+      }
+
+      if (url.pathname === "/api/stores" && request.method === "POST") {
+        try {
+          const body = await request.json();
+          const name = String(body.name || "").trim();
+          if (!name || name.length > 100) return json({ error: "Enter a shop name (up to 100 characters)" }, 400);
+          const baseSlug = String(body.slug || name).trim().toLowerCase()
+            .normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "")
+            .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+          if (!baseSlug) return json({ error: "Invalid shop name" }, 400);
+          const slug = `${baseSlug}-${crypto.randomUUID().slice(0, 6)}`;
+          const response = await fetch(`${supabaseUrl}/rest/v1/stores`, {
+            method: "POST",
+            headers: { ...headers, Prefer: "return=representation" },
+            body: JSON.stringify({ name, slug })
+          });
+          if (!response.ok) {
+            const detail = await response.text();
+            console.error("Create shop failed:", response.status, detail);
+            return json({ error: "Could not create shop" }, 502);
+          }
+          return json(await response.json(), 201);
+        } catch (error) {
+          console.error("Create shop failed:", error);
+          return json({ error: "Invalid shop data" }, 400);
+        }
+      }
+
+      if (url.pathname.startsWith("/api/stores/") && request.method === "PATCH") {
+        try {
+          const id = decodeURIComponent(url.pathname.slice("/api/stores/".length));
+          if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Invalid shop ID" }, 400);
+          const body = await request.json();
+          const update = {};
+          if (body.name !== undefined) {
+            const name = String(body.name).trim();
+            if (!name || name.length > 100) return json({ error: "Invalid shop name" }, 400);
+            update.name = name;
+          }
+          if (Object.keys(update).length === 0) return json({ error: "Nothing to update" }, 400);
+          const response = await fetch(`${supabaseUrl}/rest/v1/stores?id=eq.${encodeURIComponent(id)}`, {
+            method: "PATCH",
+            headers: { ...headers, Prefer: "return=representation" },
+            body: JSON.stringify(update)
+          });
+          if (!response.ok) return json({ error: "Could not update shop" }, 502);
+          return json(await response.json());
+        } catch (error) {
+          console.error("Update shop failed:", error);
+          return json({ error: "Invalid shop data" }, 400);
+        }
+      }
+
+      if (url.pathname.startsWith("/api/stores/") && request.method === "DELETE") {
+        try {
+          const id = decodeURIComponent(url.pathname.slice("/api/stores/".length));
+          if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Invalid shop ID" }, 400);
+          // Unlink QR codes first; never delete QR codes or scan history with a shop.
+          const unlink = await fetch(`${supabaseUrl}/rest/v1/qr_codes?store_id=eq.${encodeURIComponent(id)}`, {
+            method: "PATCH",
+            headers: { ...headers, Prefer: "return=minimal" },
+            body: JSON.stringify({ store_id: null })
+          });
+          if (!unlink.ok) return json({ error: "Could not unlink QR codes from this shop" }, 502);
+          const response = await fetch(`${supabaseUrl}/rest/v1/stores?id=eq.${encodeURIComponent(id)}`, {
+            method: "DELETE",
+            headers: { ...headers, Prefer: "return=minimal" }
+          });
+          if (!response.ok) return json({ error: "Could not remove shop" }, 502);
+          return json({ success: true });
+        } catch (error) {
+          console.error("Delete shop failed:", error);
+          return json({ error: "Could not remove shop" }, 502);
+        }
+      }
+
       // List QR codes with scan statistics
       if (url.pathname === "/api/qr" && request.method === "GET") {
         try {
           const response = await fetch(
-            `${supabaseUrl}/rest/v1/qr_codes?select=code,destination_url,is_active&order=code.asc`,
+            `${supabaseUrl}/rest/v1/qr_codes?select=code,destination_url,is_active,store_id&order=code.asc`,
             { headers }
           );
 
@@ -386,7 +474,8 @@ export default {
                 title: code,
                 code,
                 destination_url: destination.toString(),
-                is_active: true
+                is_active: true,
+                store_id: body.store_id || null
               })
             }
           );
@@ -463,6 +552,12 @@ export default {
 
           if (body.is_active !== undefined) {
             update.is_active = Boolean(body.is_active);
+          }
+          if (body.store_id !== undefined) {
+            if (body.store_id !== null && !/^[0-9a-f-]{36}$/i.test(String(body.store_id))) {
+              return json({ error: "Invalid shop selection" }, 400);
+            }
+            update.store_id = body.store_id;
           }
 
           if (Object.keys(update).length === 0) {
