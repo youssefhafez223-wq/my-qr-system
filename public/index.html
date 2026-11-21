@@ -243,6 +243,13 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 .qrTable th:last-child,.qrTable td:last-child{min-width:270px}
 
 
+
+.statCard.clickable{cursor:pointer;transition:transform .15s,border-color .15s}
+.statCard.clickable:hover,.statCard.clickable:focus{transform:translateY(-2px);border-color:var(--cyan);outline:none}
+.detailTable{width:100%;min-width:650px;border-collapse:collapse;margin:12px 0 20px}
+.detailTable th,.detailTable td{padding:12px;border-bottom:1px solid #19384d;text-align:left;vertical-align:middle}
+.detailTable th{color:var(--cyan)}
+.detailAction{white-space:nowrap}
 </style>
 </head>
 
@@ -275,7 +282,7 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 
   <div class="statsGrid">
     <div class="statCard"><div class="statIcon gold">▦</div><div><strong id="total">0</strong><span>Total QR Codes</span></div></div>
-    <div class="statCard"><div class="statIcon blue">⌁</div><div><strong id="totalScans">0</strong><span>Total Scans</span></div></div>
+    <div class="statCard clickable" role="button" tabindex="0" onclick="openScanStats()"><div class="statIcon blue">⌁</div><div><strong id="totalScans">0</strong><span>Total Scans · View breakdown</span></div></div>
     <div class="statCard"><div class="statIcon teal">▣</div><div><strong id="totalShops">0</strong><span>Total Shops</span></div></div>
   </div>
   <div style="display:flex;justify-content:flex-end;margin:0 0 14px"><button class="secondary" onclick="logout()">Logout</button></div>
@@ -355,9 +362,13 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
   <div id="shopsPanel" class="panel hidden">
     <h2>Manage Shops</h2>
     <p class="subtitle">Add, rename, or remove shops. Removing a shop only unlinks its QR codes.</p>
-    <div class="shopForm" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px"><div><label for="shopName">Shop Name *</label><input id="shopName" placeholder="Shop name" maxlength="100"></div><div><label for="shopPhone">Phone Number</label><input id="shopPhone" type="tel" placeholder="Phone number"></div><div style="grid-column:1/-1"><label for="shopAddress">Shop Address</label><input id="shopAddress" placeholder="Shop address"></div></div><button class="primary" onclick="addShop()">＋ Add Shop</button><div id="shopMessage"></div><div class="shopListHead"><span>Shop Name</span><span>Address</span><span>Phone</span><span>Actions</span></div><div id="shopList"></div>
+    <div class="shopForm" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px"><div><label for="shopName">Shop Name *</label><input id="shopName" placeholder="Shop name" maxlength="100"></div><div><label for="shopPhone">Phone Number</label><input id="shopPhone" type="tel" placeholder="Phone number"></div><div style="grid-column:1/-1"><label for="shopAddress">Shop Address</label><input id="shopAddress" placeholder="Shop address"></div></div><button class="primary" onclick="addShop()">＋ Add Shop</button><div id="shopMessage"></div><div class="searchField"><span aria-hidden="true">⌕</span><input id="shopSearch" type="search" placeholder="Search shops by name..." oninput="filterShopRows()" autocomplete="off"></div><div class="shopListHead"><span>Shop Name</span><span>Address</span><span>Phone</span><span>Actions</span></div><div id="shopList"></div>
     <button class="secondary" onclick="showSection('dashboardMain')">Back to Dashboard</button>
   </div>
+
+  <div id="shopDetailPanel" class="panel hidden"><button class="secondary" onclick="showSection('shopsPanel')">← Back to Shops</button><h2 id="shopDetailTitle" style="margin-top:14px">Shop</h2><p class="subtitle" id="shopDetailMeta"></p><div id="shopDetailList"></div><button class="secondary" onclick="showSection('dashboardMain')">Back to Dashboard</button></div>
+
+  <div id="scanStatsPanel" class="panel hidden"><button class="secondary" onclick="showSection('dashboardMain')">← Back to Dashboard</button><h2 style="margin-top:14px">Scan Statistics</h2><p class="subtitle">Breakdown of all recorded scans by shop and QR code.</p><h3>By Shop</h3><div id="shopScanStats"></div><h3 style="margin-top:22px">By QR Code</h3><div id="qrScanStats"></div></div>
 
   <div id="scannerPanel" class="panel hidden">
     <h2>Scan QROMA QR</h2>
@@ -404,6 +415,8 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 let token = "";
 let currentQR = "";
 let stores = [];
+let qrItems = [];
+let currentShopDetailId = null;
 let scanStream = null;
 let scanTimer = null;
 
@@ -566,6 +579,7 @@ async function loadQR() {
 
     const [data, shopData] = await Promise.all([api("/api/qr"), api("/api/stores")]);
     const items = Array.isArray(data) ? data : (data.qr_codes || data.data || []);
+    qrItems = items;
     stores = Array.isArray(shopData) ? shopData : [];
     const totalShopsEl = document.getElementById("totalShops");
     if (totalShopsEl) totalShopsEl.textContent = stores.length;
@@ -626,6 +640,13 @@ async function loadQR() {
         } catch (e) { alert(e.message); }
       };
       shopCell.appendChild(shopSelect);
+      if (item.store_id) {
+        const viewShopBtn = document.createElement("button");
+        viewShopBtn.className = "secondary";
+        viewShopBtn.textContent = "View Shop";
+        viewShopBtn.onclick = () => openShopDetail(item.store_id);
+        shopCell.appendChild(viewShopBtn);
+      }
 
       const url = document.createElement("td");
       url.className = "destinationCell";
@@ -743,6 +764,9 @@ async function editQR(code, oldUrl) {
     );
 
     await loadQR();
+    if (currentShopDetailId && !document.getElementById("shopDetailPanel").classList.contains("hidden")) {
+      openShopDetail(currentShopDetailId);
+    }
 
   } catch (e) {
 
@@ -791,8 +815,95 @@ async function deleteQR(code) {
 }
 
 
+
+function makeDetailTable(headers, rows) {
+  const wrap = document.createElement("div");
+  wrap.style.overflowX = "auto";
+  const table = document.createElement("table");
+  table.className = "detailTable";
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  headers.forEach(label => { const th = document.createElement("th"); th.textContent = label; headRow.appendChild(th); });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+  const tbody = document.createElement("tbody");
+  rows.forEach(cells => {
+    const tr = document.createElement("tr");
+    cells.forEach(cell => {
+      const td = document.createElement("td");
+      if (cell instanceof Node) td.appendChild(cell);
+      else td.textContent = String(cell ?? "—");
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  return wrap;
+}
+
+function openShopDetail(storeId) {
+  currentShopDetailId = storeId;
+  const shop = stores.find(item => String(item.id) === String(storeId));
+  if (!shop) return alert("Shop not found. Refresh the dashboard and try again.");
+  const assigned = qrItems.filter(item => String(item.store_id) === String(storeId));
+  document.getElementById("shopDetailTitle").textContent = shop.name;
+  document.getElementById("shopDetailMeta").textContent =
+    (shop.address || "No address") + " · " + (shop.phone || "No phone") +
+    " · " + assigned.length + " QR code(s)";
+  const list = document.getElementById("shopDetailList");
+  list.innerHTML = "";
+  if (!assigned.length) {
+    list.textContent = "No QR codes are assigned to this shop yet.";
+  } else {
+    const rows = assigned.map(item => {
+      const edit = document.createElement("button");
+      edit.className = "secondary detailAction";
+      edit.textContent = "Edit URL";
+      edit.onclick = () => editQR(item.code, item.destination_url);
+      const generate = document.createElement("button");
+      generate.className = "primary detailAction";
+      generate.textContent = "Generate QR";
+      generate.onclick = () => showQR(item.code);
+      const actions = document.createElement("div");
+      actions.append(edit, generate);
+      return [item.code, item.destination_url, item.scan_count ?? 0, item.is_active ? "Active" : "Disabled", actions];
+    });
+    list.appendChild(makeDetailTable(["QR Code", "Destination", "Scans", "Status", "Actions"], rows));
+  }
+  showSection("shopDetailPanel");
+}
+
+function openScanStats() {
+  const byShop = new Map();
+  qrItems.forEach(item => {
+    const shopName = stores.find(shop => String(shop.id) === String(item.store_id))?.name || "No shop";
+    const current = byShop.get(shopName) || { scans: 0, codes: 0 };
+    current.scans += Number(item.scan_count) || 0;
+    current.codes += 1;
+    byShop.set(shopName, current);
+  });
+  const shopRows = [...byShop.entries()].sort((a,b) => b[1].scans - a[1].scans)
+    .map(([name, stats]) => [name, stats.codes, stats.scans]);
+  const shopTarget = document.getElementById("shopScanStats");
+  shopTarget.innerHTML = "";
+  if (shopRows.length) shopTarget.appendChild(makeDetailTable(["Shop", "QR Codes", "Total Scans"], shopRows));
+  else shopTarget.textContent = "No scan statistics yet.";
+
+  const qrRows = [...qrItems].sort((a,b) => (Number(b.scan_count)||0) - (Number(a.scan_count)||0))
+    .map(item => {
+      const shopName = stores.find(shop => String(shop.id) === String(item.store_id))?.name || "No shop";
+      return [item.code, shopName, Number(item.scan_count)||0, item.last_scanned_at ? new Date(item.last_scanned_at).toLocaleString() : "Never"];
+    });
+  const qrTarget = document.getElementById("qrScanStats");
+  qrTarget.innerHTML = "";
+  if (qrRows.length) qrTarget.appendChild(makeDetailTable(["QR Code", "Shop", "Scans", "Last Scanned"], qrRows));
+  else qrTarget.textContent = "No QR codes found.";
+  showSection("scanStatsPanel");
+}
+
 function showSection(section) {
-  ["dashboardMain", "shopsPanel", "scannerPanel"].forEach(id => {
+  ["dashboardMain", "shopsPanel", "scannerPanel", "shopDetailPanel", "scanStatsPanel"].forEach(id => {
     document.getElementById(id).classList.toggle("hidden", id !== section);
   });
   if (section !== "scannerPanel") stopScanner();
@@ -801,6 +912,13 @@ function showSection(section) {
 async function openShops() {
   showSection("shopsPanel");
   await loadShops();
+}
+
+async function filterShopRows() {
+  const query = (document.getElementById("shopSearch")?.value || "").trim().toLowerCase();
+  document.querySelectorAll("#shopList .shopRow").forEach(row => {
+    row.hidden = query && !row.dataset.search.includes(query);
+  });
 }
 
 async function loadShops() {
@@ -815,6 +933,7 @@ async function loadShops() {
     stores.forEach(shop => {
       const row = document.createElement("div");
       row.className = "shopRow";
+      row.dataset.search = [shop.name, shop.address, shop.phone].join(" ").toLowerCase();
       const label = document.createElement("span");
       const shopTitle = document.createElement("strong");
       shopTitle.textContent = shop.name;
@@ -832,10 +951,15 @@ async function loadShops() {
       remove.className = "danger";
       remove.textContent = "Remove";
       remove.onclick = () => removeShop(shop);
-      actions.append(edit, remove);
+      const view = document.createElement("button");
+      view.className = "primary";
+      view.textContent = "View QR Codes";
+      view.onclick = () => openShopDetail(shop.id);
+      actions.append(view, edit, remove);
       row.append(label, address, phone, actions);
       list.appendChild(row);
     });
+    filterShopRows();
   } catch (e) {
     document.getElementById("shopMessage").textContent = e.message;
   }
