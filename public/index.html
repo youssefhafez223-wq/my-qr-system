@@ -916,7 +916,7 @@ async function filterShopRows() {
   });
 }
 
-function loadShops() {
+async function loadShops() {
   try {
     stores = await api("/api/stores");
     const list = document.getElementById("shopList");
