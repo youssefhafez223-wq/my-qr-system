@@ -244,6 +244,7 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 
 
 .statsTableWrap{overflow-x:auto;margin-top:12px}.statsDetailTable{width:100%;min-width:560px;border-collapse:collapse}.statsDetailTable th,.statsDetailTable td{padding:12px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}.statsDetailTable th{color:var(--cyan);font-weight:700}.statsDetailTable td:last-child{text-align:right;font-variant-numeric:tabular-nums}.navActions button{min-height:42px}
+.detailTable{width:100%;min-width:650px;border-collapse:collapse;margin:12px 0 20px}.detailTable th,.detailTable td{padding:12px;border-bottom:1px solid #19384d;text-align:left;vertical-align:middle}.detailTable th{color:var(--cyan)}
 </style>
 </head>
 
@@ -373,9 +374,11 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
   <div id="shopsPanel" class="panel hidden">
     <h2>Manage Shops</h2>
     <p class="subtitle">Add, rename, or remove shops. Removing a shop only unlinks its QR codes.</p>
-    <div class="shopForm" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px"><div><label for="shopName">Shop Name *</label><input id="shopName" placeholder="Shop name" maxlength="100"></div><div><label for="shopPhone">Phone Number</label><input id="shopPhone" type="tel" placeholder="Phone number"></div><div style="grid-column:1/-1"><label for="shopAddress">Shop Address</label><input id="shopAddress" placeholder="Shop address"></div></div><button class="primary" onclick="addShop()">＋ Add Shop</button><div id="shopMessage"></div><div class="shopListHead"><span>Shop Name</span><span>Address</span><span>Phone</span><span>Actions</span></div><div id="shopList"></div>
+    <div class="shopForm" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px"><div><label for="shopName">Shop Name *</label><input id="shopName" placeholder="Shop name" maxlength="100"></div><div><label for="shopPhone">Phone Number</label><input id="shopPhone" type="tel" placeholder="Phone number"></div><div style="grid-column:1/-1"><label for="shopAddress">Shop Address</label><input id="shopAddress" placeholder="Shop address"></div></div><button class="primary" onclick="addShop()">＋ Add Shop</button><div id="shopMessage"></div><div class="searchField"><span aria-hidden="true">⌕</span><input id="shopSearch" type="search" placeholder="Search shops by name..." oninput="filterShopRows()" autocomplete="off"></div><div class="shopListHead"><span>Shop Name</span><span>Address</span><span>Phone</span><span>Actions</span></div><div id="shopList"></div>
     <button class="secondary" onclick="showSection('dashboardMain')">Back to Dashboard</button>
   </div>
+
+  <div id="shopDetailPanel" class="panel hidden"><button class="secondary" onclick="showSection('shopsPanel')">← Back to Shops</button><h2 id="shopDetailTitle" style="margin-top:14px">Shop</h2><p class="subtitle" id="shopDetailMeta"></p><div id="shopDetailList"></div><button class="secondary" onclick="showSection('dashboardMain')">Back to Dashboard</button></div>
 
   <div id="scannerPanel" class="panel hidden">
     <h2>Scan QROMA QR</h2>
@@ -423,6 +426,7 @@ let token = "";
 let currentQR = "";
 let stores = [];
 let qrItems = [];
+let currentShopDetailId = null;
 let scanStream = null;
 let scanTimer = null;
 
@@ -646,6 +650,13 @@ async function loadQR() {
         } catch (e) { alert(e.message); }
       };
       shopCell.appendChild(shopSelect);
+      if (item.store_id) {
+        const viewShopBtn = document.createElement("button");
+        viewShopBtn.className = "secondary";
+        viewShopBtn.textContent = "View Shop";
+        viewShopBtn.onclick = () => openShopDetail(item.store_id);
+        shopCell.appendChild(viewShopBtn);
+      }
 
       const url = document.createElement("td");
       url.className = "destinationCell";
@@ -811,8 +822,51 @@ async function deleteQR(code) {
 }
 
 
+function filterShopRows() {
+  const query = (document.getElementById("shopSearch")?.value || "").trim().toLowerCase();
+  document.querySelectorAll("#shopList .shopRow").forEach(row => {
+    row.hidden = query && !row.dataset.search.includes(query);
+  });
+}
+
+function openShopDetail(storeId) {
+  currentShopDetailId = storeId;
+  const shop = stores.find(item => String(item.id) === String(storeId));
+  if (!shop) return alert("Shop not found. Refresh the dashboard and try again.");
+  const assigned = qrItems.filter(item => String(item.store_id) === String(storeId));
+  document.getElementById("shopDetailTitle").textContent = shop.name;
+  document.getElementById("shopDetailMeta").textContent =
+    (shop.address || "No address") + " · " + (shop.phone || "No phone") + " · " + assigned.length + " QR code(s)";
+  const list = document.getElementById("shopDetailList");
+  list.replaceChildren();
+  if (!assigned.length) {
+    list.textContent = "No QR codes are assigned to this shop yet.";
+  } else {
+    const table = document.createElement("table");
+    table.className = "detailTable";
+    const headers = ["QR Code", "Destination", "Scans", "Status", "Actions"];
+    const head = document.createElement("tr");
+    headers.forEach(label => { const th=document.createElement("th"); th.textContent=label; head.appendChild(th); });
+    const thead=document.createElement("thead"); thead.appendChild(head); table.appendChild(thead);
+    const body=document.createElement("tbody");
+    assigned.forEach(item => {
+      const tr=document.createElement("tr");
+      [item.code,item.destination_url,item.scan_count ?? 0,item.is_active ? "Active" : "Disabled"].forEach(value => {
+        const td=document.createElement("td"); td.textContent=String(value ?? "—"); tr.appendChild(td);
+      });
+      const td=document.createElement("td");
+      const edit=document.createElement("button"); edit.className="secondary"; edit.textContent="Edit URL";
+      edit.onclick=()=>editQR(item.code,item.destination_url);
+      td.appendChild(edit); tr.appendChild(td); body.appendChild(tr);
+    });
+    table.appendChild(body);
+    const wrap=document.createElement("div"); wrap.style.overflowX="auto"; wrap.appendChild(table); list.appendChild(wrap);
+  }
+  showSection("shopDetailPanel");
+}
+
 function showSection(section) {
-  ["dashboardMain", "shopsPanel", "scannerPanel", "scanStatsPanel"].forEach(id => {
+  ["dashboardMain", "shopsPanel", "scannerPanel", "scanStatsPanel", "shopDetailPanel"].forEach(id => {
     document.getElementById(id).classList.toggle("hidden", id !== section);
   });
   if (section !== "scannerPanel") stopScanner();
@@ -899,6 +953,7 @@ async function loadShops() {
     stores.forEach(shop => {
       const row = document.createElement("div");
       row.className = "shopRow";
+      row.dataset.search = [shop.name, shop.address, shop.phone].join(" ").toLowerCase();
       const label = document.createElement("span");
       const shopTitle = document.createElement("strong");
       shopTitle.textContent = shop.name;
@@ -916,10 +971,15 @@ async function loadShops() {
       remove.className = "danger";
       remove.textContent = "Remove";
       remove.onclick = () => removeShop(shop);
-      actions.append(edit, remove);
+      const view = document.createElement("button");
+      view.className = "primary";
+      view.textContent = "View QR Codes";
+      view.onclick = () => openShopDetail(shop.id);
+      actions.append(view, edit, remove);
       row.append(label, address, phone, actions);
       list.appendChild(row);
     });
+    filterShopRows();
   } catch (e) {
     document.getElementById("shopMessage").textContent = e.message;
   }
