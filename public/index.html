@@ -416,6 +416,7 @@ let token = "";
 let currentQR = "";
 let stores = [];
 let qrItems = [];
+let currentShopDetailId = null;
 let scanStream = null;
 let scanTimer = null;
 
@@ -763,6 +764,9 @@ async function editQR(code, oldUrl) {
     );
 
     await loadQR();
+    if (currentShopDetailId && !document.getElementById("shopDetailPanel").classList.contains("hidden")) {
+      openShopDetail(currentShopDetailId);
+    }
 
   } catch (e) {
 
@@ -839,6 +843,7 @@ function makeDetailTable(headers, rows) {
 }
 
 function openShopDetail(storeId) {
+  currentShopDetailId = storeId;
   const shop = stores.find(item => String(item.id) === String(storeId));
   if (!shop) return alert("Shop not found. Refresh the dashboard and try again.");
   const assigned = qrItems.filter(item => String(item.store_id) === String(storeId));
