@@ -215,6 +215,16 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 .brandLogo{display:block;width:54px;height:54px;flex:0 0 54px;filter:drop-shadow(0 0 9px #00dce888)}
 @media(max-width:650px){.brandHeader h1{font-size:28px}.brandLogo{width:46px;height:46px;flex-basis:46px}}
 
+/* Keep QR table labels and short values on one line; scroll horizontally on small screens */
+.qrTable{min-width:1120px;table-layout:auto}
+.qrTable th,.qrTable td{white-space:nowrap;word-break:normal;overflow-wrap:normal;vertical-align:middle}
+.qrTable .destinationCell{white-space:normal;overflow-wrap:anywhere;word-break:normal;min-width:220px;max-width:320px}
+.qrTable .status{white-space:nowrap;min-width:90px}
+.qrTable th:nth-child(5),.qrTable td:nth-child(5){min-width:105px}
+.qrTable th:nth-child(6),.qrTable td:nth-child(6){min-width:170px}
+.qrTable th:last-child,.qrTable td:last-child{min-width:270px}
+
+
 </style>
 </head>
 
@@ -291,7 +301,7 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
     <div id="message"></div>
 
     <div style="overflow-x:auto">
-      <table>
+      <table class="qrTable">
         <thead>
           <tr>
             <th>Code</th>
@@ -503,6 +513,7 @@ async function loadQR() {
       shopCell.appendChild(shopSelect);
 
       const url = document.createElement("td");
+      url.className = "destinationCell";
       url.textContent = item.destination_url;
 
       const status = document.createElement("td");
