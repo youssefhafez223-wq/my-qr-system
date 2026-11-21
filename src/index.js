@@ -1,3 +1,61 @@
+import { DurableObject } from "cloudflare:workers";
+
+export class LoginRateLimiter extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+    ctx.blockConcurrencyWhile(async () => {
+      ctx.storage.sql.exec(`
+        CREATE TABLE IF NOT EXISTS login_state (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          failed_attempts INTEGER NOT NULL DEFAULT 0,
+          locked_until INTEGER NOT NULL DEFAULT 0
+        )
+      `);
+    });
+  }
+
+  async check(passwordIsValid) {
+    const now = Date.now();
+    const rows = this.ctx.storage.sql.exec(
+      "SELECT failed_attempts, locked_until FROM login_state WHERE id = 1"
+    ).toArray();
+    const state = rows[0] || { failed_attempts: 0, locked_until: 0 };
+
+    if (state.locked_until > now) {
+      return {
+        allowed: false,
+        locked: true,
+        retryAfter: Math.max(1, Math.ceil((state.locked_until - now) / 1000))
+      };
+    }
+
+    if (passwordIsValid) {
+      this.ctx.storage.sql.exec("DELETE FROM login_state WHERE id = 1");
+      return { allowed: true, locked: false, retryAfter: 0 };
+    }
+
+    const failedAttempts = state.locked_until > 0 ? 1 : state.failed_attempts + 1;
+    const lockedUntil = failedAttempts >= 3 ? now + 60_000 : 0;
+    const savedFailures = lockedUntil > 0 ? 0 : failedAttempts;
+
+    this.ctx.storage.sql.exec(
+      `INSERT INTO login_state (id, failed_attempts, locked_until)
+       VALUES (1, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         failed_attempts = excluded.failed_attempts,
+         locked_until = excluded.locked_until`,
+      savedFailures,
+      lockedUntil
+    );
+
+    return {
+      allowed: false,
+      locked: lockedUntil > now,
+      retryAfter: lockedUntil > now ? 60 : 0
+    };
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -183,7 +241,7 @@ export default {
       }
     };
 
-    // Admin login
+    // Admin login with failed-attempt rate limiting
     if (url.pathname === "/api/login" && request.method === "POST") {
       try {
         const body = await request.json();
@@ -192,12 +250,23 @@ export default {
           return json({ error: "Admin password is not configured" }, 500);
         }
 
-        if (body.password !== env.ADMIN_PASSWORD) {
+        const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+        const loginGuard = env.LOGIN_GUARD.getByName(ip);
+        const decision = await loginGuard.check(body.password === env.ADMIN_PASSWORD);
+
+        if (decision.locked) {
+          return json({
+            error: `Too many failed attempts. Please wait ${decision.retryAfter} seconds and try again.`
+          }, 429);
+        }
+
+        if (!decision.allowed) {
           return json({ error: "Wrong password" }, 401);
         }
 
         return json({ token: await createToken() });
-      } catch {
+      } catch (error) {
+        console.error("Login failed:", error);
         return json({ error: "Login failed" }, 400);
       }
     }
@@ -220,11 +289,98 @@ export default {
         "Content-Type": "application/json",
         Accept: "application/json"
       };
+
+      
+      // Shop management
+      if (url.pathname === "/api/stores" && request.method === "GET") {
+        try {
+          const response = await fetch(`${supabaseUrl}/rest/v1/stores?select=id,name,slug,address,phone,created_at&order=name.asc`, { headers });
+          if (!response.ok) return json({ error: "Could not load shops" }, 502);
+          return json(await response.json());
+        } catch (error) {
+          console.error("List shops failed:", error);
+          return json({ error: "Could not load shops" }, 502);
+        }
+      }
+
+      if (url.pathname === "/api/stores" && request.method === "POST") {
+        try {
+          const body = await request.json();
+          const name = String(body.name || "").trim();
+          if (!name || name.length > 100) return json({ error: "Enter a shop name (up to 100 characters)" }, 400);
+          const slug = "shop-" + crypto.randomUUID().slice(0, 8);
+          const response = await fetch(`${supabaseUrl}/rest/v1/stores`, {
+            method: "POST",
+            headers: { ...headers, Prefer: "return=representation" },
+            body: JSON.stringify({ name, slug, address: String(body.address || "").trim() || null, phone: String(body.phone || "").trim() || null })
+          });
+          if (!response.ok) {
+            const detail = await response.text();
+            console.error("Create shop failed:", response.status, detail);
+            return json({ error: "Could not create shop" }, 502);
+          }
+          return json(await response.json(), 201);
+        } catch (error) {
+          console.error("Create shop failed:", error);
+          return json({ error: "Invalid shop data" }, 400);
+        }
+      }
+
+      if (url.pathname.startsWith("/api/stores/") && request.method === "PATCH") {
+        try {
+          const id = decodeURIComponent(url.pathname.slice("/api/stores/".length));
+          if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Invalid shop ID" }, 400);
+          const body = await request.json();
+          const update = {};
+          if (body.name !== undefined) {
+            const name = String(body.name).trim();
+            if (!name || name.length > 100) return json({ error: "Invalid shop name" }, 400);
+            update.name = name;
+          }
+          if (body.address !== undefined) update.address = String(body.address || "").trim() || null;
+          if (body.phone !== undefined) update.phone = String(body.phone || "").trim() || null;
+          if (Object.keys(update).length === 0) return json({ error: "Nothing to update" }, 400);
+          const response = await fetch(`${supabaseUrl}/rest/v1/stores?id=eq.${encodeURIComponent(id)}`, {
+            method: "PATCH",
+            headers: { ...headers, Prefer: "return=representation" },
+            body: JSON.stringify(update)
+          });
+          if (!response.ok) return json({ error: "Could not update shop" }, 502);
+          return json(await response.json());
+        } catch (error) {
+          console.error("Update shop failed:", error);
+          return json({ error: "Invalid shop data" }, 400);
+        }
+      }
+
+      if (url.pathname.startsWith("/api/stores/") && request.method === "DELETE") {
+        try {
+          const id = decodeURIComponent(url.pathname.slice("/api/stores/".length));
+          if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Invalid shop ID" }, 400);
+          // Unlink QR codes first; never delete QR codes or scan history with a shop.
+          const unlink = await fetch(`${supabaseUrl}/rest/v1/qr_codes?store_id=eq.${encodeURIComponent(id)}`, {
+            method: "PATCH",
+            headers: { ...headers, Prefer: "return=minimal" },
+            body: JSON.stringify({ store_id: null })
+          });
+          if (!unlink.ok) return json({ error: "Could not unlink QR codes from this shop" }, 502);
+          const response = await fetch(`${supabaseUrl}/rest/v1/stores?id=eq.${encodeURIComponent(id)}`, {
+            method: "DELETE",
+            headers: { ...headers, Prefer: "return=minimal" }
+          });
+          if (!response.ok) return json({ error: "Could not remove shop" }, 502);
+          return json({ success: true });
+        } catch (error) {
+          console.error("Delete shop failed:", error);
+          return json({ error: "Could not remove shop" }, 502);
+        }
+      }
+
       // List QR codes with scan statistics
       if (url.pathname === "/api/qr" && request.method === "GET") {
         try {
           const response = await fetch(
-            `${supabaseUrl}/rest/v1/qr_codes?select=code,destination_url,is_active&order=code.asc`,
+            `${supabaseUrl}/rest/v1/qr_codes?select=code,destination_url,is_active,store_id&order=code.asc`,
             { headers }
           );
 
@@ -280,7 +436,7 @@ export default {
           return json({ error: "Could not connect to Supabase" }, 502);
         }
       }
-    
+
       // Add QR code
       if (url.pathname === "/api/qr" && request.method === "POST") {
         try {
@@ -316,7 +472,8 @@ export default {
                 title: code,
                 code,
                 destination_url: destination.toString(),
-                is_active: true
+                is_active: true,
+                store_id: body.store_id || null
               })
             }
           );
@@ -393,6 +550,12 @@ export default {
 
           if (body.is_active !== undefined) {
             update.is_active = Boolean(body.is_active);
+          }
+          if (body.store_id !== undefined) {
+            if (body.store_id !== null && !/^[0-9a-f-]{36}$/i.test(String(body.store_id))) {
+              return json({ error: "Invalid shop selection" }, 400);
+            }
+            update.store_id = body.store_id;
           }
 
           if (Object.keys(update).length === 0) {
