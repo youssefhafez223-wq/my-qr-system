@@ -243,6 +243,7 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 .qrTable th:last-child,.qrTable td:last-child{min-width:270px}
 
 
+.statsTableWrap{overflow-x:auto;margin-top:12px}.statsDetailTable{width:100%;min-width:560px;border-collapse:collapse}.statsDetailTable th,.statsDetailTable td{padding:12px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}.statsDetailTable th{color:var(--cyan);font-weight:700}.statsDetailTable td:last-child{text-align:right;font-variant-numeric:tabular-nums}.navActions button{min-height:42px}
 </style>
 </head>
 
@@ -286,6 +287,23 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
       <button onclick="showSection('dashboardMain')">Dashboard</button>
       <button onclick="openShops()">Manage Shops</button>
       <button onclick="openScanner()">Scan QR</button>
+      <button onclick="openScanStats()">Total Scans</button>
+    </div>
+  </div>
+
+  <div id="scanStatsPanel" class="hidden">
+    <div class="panel">
+      <h2>Total Scans</h2>
+      <p class="subtitle">Detailed scan counts by shop and by QR code. Your existing scan history is kept unchanged.</p>
+      <div class="statsGrid">
+        <div class="statCard"><div class="statIcon blue">⌁</div><div><strong id="statsAllScans">0</strong><span>All Recorded Scans</span></div></div>
+        <div class="statCard"><div class="statIcon teal">▣</div><div><strong id="statsShopCount">0</strong><span>Shops with QR Codes</span></div></div>
+        <div class="statCard"><div class="statIcon gold">▦</div><div><strong id="statsQrCount">0</strong><span>QR Codes</span></div></div>
+      </div>
+      <h3>Scans by Shop</h3>
+      <div id="shopScanStats" class="statsTableWrap"></div>
+      <h3 style="margin-top:24px">Scans by QR Code</h3>
+      <div id="qrScanStats" class="statsTableWrap"></div>
     </div>
   </div>
 
@@ -404,6 +422,7 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 let token = "";
 let currentQR = "";
 let stores = [];
+let qrItems = [];
 let scanStream = null;
 let scanTimer = null;
 
@@ -566,6 +585,7 @@ async function loadQR() {
 
     const [data, shopData] = await Promise.all([api("/api/qr"), api("/api/stores")]);
     const items = Array.isArray(data) ? data : (data.qr_codes || data.data || []);
+    qrItems = items;
     stores = Array.isArray(shopData) ? shopData : [];
     const totalShopsEl = document.getElementById("totalShops");
     if (totalShopsEl) totalShopsEl.textContent = stores.length;
@@ -792,10 +812,74 @@ async function deleteQR(code) {
 
 
 function showSection(section) {
-  ["dashboardMain", "shopsPanel", "scannerPanel"].forEach(id => {
+  ["dashboardMain", "shopsPanel", "scannerPanel", "scanStatsPanel"].forEach(id => {
     document.getElementById(id).classList.toggle("hidden", id !== section);
   });
   if (section !== "scannerPanel") stopScanner();
+}
+
+function buildStatsTable(headers, rows) {
+  const table = document.createElement("table");
+  table.className = "statsDetailTable";
+  const thead = document.createElement("thead");
+  const head = document.createElement("tr");
+  headers.forEach(label => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    head.appendChild(th);
+  });
+  thead.appendChild(head);
+  table.appendChild(thead);
+  const tbody = document.createElement("tbody");
+  rows.forEach(values => {
+    const tr = document.createElement("tr");
+    values.forEach(value => {
+      const td = document.createElement("td");
+      td.textContent = String(value ?? "—");
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  return table;
+}
+
+function openScanStats() {
+  const total = qrItems.reduce((sum, item) => sum + (Number(item.scan_count) || 0), 0);
+  const shopMap = new Map();
+  qrItems.forEach(item => {
+    const shop = stores.find(s => String(s.id) === String(item.store_id));
+    const key = shop ? String(shop.id) : "no-shop";
+    const entry = shopMap.get(key) || { name: shop ? shop.name : "No shop", codes: 0, scans: 0 };
+    entry.codes += 1;
+    entry.scans += Number(item.scan_count) || 0;
+    shopMap.set(key, entry);
+  });
+  document.getElementById("statsAllScans").textContent = total.toLocaleString();
+  document.getElementById("statsShopCount").textContent = [...shopMap.values()].filter(x => x.name !== "No shop").length;
+  document.getElementById("statsQrCount").textContent = qrItems.length.toLocaleString();
+
+  const shopRows = [...shopMap.values()]
+    .sort((a,b) => b.scans - a.scans || a.name.localeCompare(b.name))
+    .map(x => [x.name, x.codes, x.scans.toLocaleString()]);
+  const shopTarget = document.getElementById("shopScanStats");
+  shopTarget.replaceChildren();
+  if (shopRows.length) shopTarget.appendChild(buildStatsTable(["Shop", "QR Codes", "Total Scans"], shopRows));
+  else shopTarget.textContent = "No shop scan data yet.";
+
+  const qrRows = [...qrItems]
+    .sort((a,b) => (Number(b.scan_count)||0) - (Number(a.scan_count)||0) || String(a.code).localeCompare(String(b.code)))
+    .map(item => {
+      const shop = stores.find(s => String(s.id) === String(item.store_id));
+      const last = item.last_scanned_at ? new Date(item.last_scanned_at).toLocaleString() : "Never";
+      return [item.code, shop ? shop.name : "No shop", (Number(item.scan_count)||0).toLocaleString(), last];
+    });
+  const qrTarget = document.getElementById("qrScanStats");
+  qrTarget.replaceChildren();
+  if (qrRows.length) qrTarget.appendChild(buildStatsTable(["QR Code", "Shop", "Scans", "Last Scanned"], qrRows));
+  else qrTarget.textContent = "No QR codes found.";
+
+  showSection("scanStatsPanel");
 }
 
 async function openShops() {
