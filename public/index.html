@@ -215,6 +215,11 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 .brandLogo{display:block;width:54px;height:54px;flex:0 0 54px;filter:drop-shadow(0 0 9px #00dce888)}
 @media(max-width:650px){.brandHeader h1{font-size:28px}.brandLogo{width:46px;height:46px;flex-basis:46px}}
 
+.searchField{display:flex;align-items:center;gap:10px;width:100%;margin:10px 0 14px;padding:0 13px;border:1px solid rgba(80,210,255,.55);border-radius:10px;background:rgba(8,20,43,.72);color:#55eaff}
+.searchField span{font-size:25px;line-height:1}
+.searchField input{flex:1;min-width:0;padding:12px 2px;border:0;outline:0;background:transparent;color:#fff;font:inherit}
+.searchField input::placeholder{color:#9bb5d4}
+.qrSearchField{max-width:460px}
 /* Keep QR table labels and short values on one line; scroll horizontally on small screens */
 .qrTable{min-width:1120px;table-layout:auto}
 .qrTable th,.qrTable td{white-space:nowrap;word-break:normal;overflow-wrap:normal;vertical-align:middle}
@@ -287,7 +292,11 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
     >
 
 
-    <label for="newStore">Assign to shop (optional)</label>
+    <label for="newStoreSearch">Assign to shop (optional)</label>
+    <div class="searchField">
+      <span aria-hidden="true">⌕</span>
+      <input id="newStoreSearch" type="search" placeholder="Search shops..." oninput="filterNewStoreOptions()" autocomplete="off">
+    </div>
     <select id="newStore" style="width:100%;padding:12px;margin:8px 0 14px;background:#111;color:white;border:1px solid #444;border-radius:7px">
       <option value="">No shop</option>
     </select>
@@ -298,6 +307,10 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
   <div class="panel">
     <h2>QR Codes</h2>
 
+    <div class="searchField qrSearchField">
+      <span aria-hidden="true">⌕</span>
+      <input id="qrSearch" type="search" placeholder="Search by QR code, shop, or destination..." oninput="filterQRRows()" autocomplete="off">
+    </div>
     <div id="message"></div>
 
     <div style="overflow-x:auto">
@@ -448,6 +461,28 @@ function logout() {
   document.getElementById("loginPanel").classList.remove("hidden");
 }
 
+function filterQRRows() {
+  const query = (document.getElementById("qrSearch")?.value || "").trim().toLowerCase();
+  document.querySelectorAll("#qrList tr").forEach(row => {
+    row.hidden = query && !row.dataset.search.includes(query);
+  });
+}
+
+function filterNewStoreOptions() {
+  const query = (document.getElementById("newStoreSearch")?.value || "").trim().toLowerCase();
+  const select = document.getElementById("newStore");
+  if (!select) return;
+  const selected = select.value;
+  select.innerHTML = '<option value="">No shop</option>';
+  stores.filter(shop => shop.name.toLowerCase().includes(query)).forEach(shop => {
+    const option = document.createElement("option");
+    option.value = shop.id;
+    option.textContent = shop.name;
+    select.appendChild(option);
+  });
+  if ([...select.options].some(option => option.value === selected)) select.value = selected;
+}
+
 async function loadQR() {
 
   try {
@@ -489,6 +524,9 @@ async function loadQR() {
 
       const code = document.createElement("td");
       code.textContent = item.code;
+
+      const shopName = stores.find(shop => shop.id === item.store_id)?.name || "No shop";
+      tr.dataset.search = [item.code, shopName, item.destination_url].join(" ").toLowerCase();
 
       const shopCell = document.createElement("td");
       const shopSelect = document.createElement("select");
