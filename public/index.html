@@ -184,6 +184,30 @@ th {
 .shopRow span { overflow-wrap:anywhere; }
 #scanVideo { width:100%; max-width:480px; border-radius:10px; background:#000; margin-top:12px; }
 
+
+/* QROMA turquoise dashboard refresh */
+:root{color-scheme:dark;--bg:#04111f;--panel:#081c2d;--line:#12445b;--cyan:#00e5ee;--muted:#a9c0d2}
+body{font-family:Inter,Arial,sans-serif;background:radial-gradient(ellipse at 50% -15%,#12334b 0,#061525 48%,#020b14 100%);color:#f4f9ff;padding:22px}
+.container{max-width:1200px;margin:auto} h1{color:#f7fbff;font-size:34px}
+.subtitle{color:var(--muted)}
+.panel{background:linear-gradient(145deg,rgba(10,35,55,.96),rgba(4,19,32,.98));border:1px solid var(--line);border-radius:18px;padding:22px;margin-bottom:20px;box-shadow:0 10px 30px #0005}
+input,select{width:100%;padding:13px 15px;margin:8px 0 14px;background:#041321;color:#f5fbff;border:1px solid #31516a;border-radius:10px;font-size:15px}
+input:focus,select:focus{outline:2px solid #00dce8;border-color:#00dce8}
+button{padding:11px 16px;border:1px solid transparent;border-radius:10px;cursor:pointer;font-weight:700;margin:3px}
+.primary{background:linear-gradient(135deg,#00e5ee,#079fe9);color:#001522}
+.secondary{background:#102d43;color:#e9f8ff;border-color:#28536a}.danger{background:#c93649;color:white}.success{background:#087d68;color:white}
+.navActions button{background:#0b3047;color:#e9faff;border:1px solid #17617b}
+table{width:100%;border-collapse:collapse;margin-top:15px;min-width:850px}
+th,td{padding:14px 12px;border-bottom:1px solid #19384d;text-align:left;overflow-wrap:anywhere}
+th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
+.status{font-weight:700}#message,#shopMessage{margin:12px 0;color:#00e4ed}
+.shopRow,.shopListHead{display:grid;grid-template-columns:minmax(140px,1.3fr) minmax(140px,1fr) minmax(120px,1fr) auto;align-items:center;gap:12px;padding:14px 12px;border-bottom:1px solid #17394f}
+.shopRow span{overflow-wrap:anywhere}#shopList{margin-top:14px;border:1px solid #17445a;border-radius:12px;overflow:hidden}
+.shopListHead{color:#00e4ed;background:#071827;font-weight:bold}
+#scanVideo{width:100%;max-width:480px;border-radius:10px;background:#000;margin-top:12px}
+#qrModal{background:#000d}.modalContent{border:1px solid #00dce8;box-shadow:0 0 30px #00dce833}
+@media(max-width:700px){body{padding:10px}.panel{padding:14px}.shopRow,.shopListHead{grid-template-columns:1fr;gap:6px}.shopListHead{display:none}.shopRow{align-items:start}h1{font-size:28px}}
+
 </style>
 </head>
 
@@ -287,10 +311,7 @@ th {
   <div id="shopsPanel" class="panel hidden">
     <h2>Manage Shops</h2>
     <p class="subtitle">Add, rename, or remove shops. Removing a shop only unlinks its QR codes.</p>
-    <input id="shopName" placeholder="Shop name">
-    <button class="primary" onclick="addShop()">Add Shop</button>
-    <div id="shopMessage"></div>
-    <div id="shopList"></div>
+    <div class="shopForm" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px"><div><label for="shopName">Shop Name *</label><input id="shopName" placeholder="Shop name" maxlength="100"></div><div><label for="shopPhone">Phone Number</label><input id="shopPhone" type="tel" placeholder="Phone number"></div><div style="grid-column:1/-1"><label for="shopAddress">Shop Address</label><input id="shopAddress" placeholder="Shop address"></div></div><button class="primary" onclick="addShop()">＋ Add Shop</button><div id="shopMessage"></div><div class="shopListHead"><span>Shop Name</span><span>Address</span><span>Phone</span><span>Actions</span></div><div id="shopList"></div>
     <button class="secondary" onclick="showSection('dashboardMain')">Back to Dashboard</button>
   </div>
 
@@ -660,7 +681,13 @@ async function loadShops() {
       const row = document.createElement("div");
       row.className = "shopRow";
       const label = document.createElement("span");
-      label.textContent = shop.name;
+      const shopTitle = document.createElement("strong");
+      shopTitle.textContent = shop.name;
+      label.appendChild(shopTitle);
+      const address = document.createElement("span");
+      address.textContent = shop.address || "—";
+      const phone = document.createElement("span");
+      phone.textContent = shop.phone || "—";
       const actions = document.createElement("div");
       const edit = document.createElement("button");
       edit.className = "secondary";
@@ -671,7 +698,7 @@ async function loadShops() {
       remove.textContent = "Remove";
       remove.onclick = () => removeShop(shop);
       actions.append(edit, remove);
-      row.append(label, actions);
+      row.append(label, address, phone, actions);
       list.appendChild(row);
     });
   } catch (e) {
@@ -682,10 +709,14 @@ async function loadShops() {
 async function addShop() {
   const input = document.getElementById("shopName");
   const name = input.value.trim();
+  const address = document.getElementById("shopAddress").value.trim();
+  const phone = document.getElementById("shopPhone").value.trim();
   if (!name) return alert("Enter a shop name");
   try {
-    await api("/api/stores", "POST", { name });
+    await api("/api/stores", "POST", { name, address, phone });
     input.value = "";
+    document.getElementById("shopAddress").value = "";
+    document.getElementById("shopPhone").value = "";
     document.getElementById("shopMessage").textContent = "Shop added.";
     await loadShops();
     await loadQR();
@@ -693,10 +724,14 @@ async function addShop() {
 }
 
 async function renameShop(shop) {
-  const name = prompt("Enter the new shop name:", shop.name);
+  const name = prompt("Shop name:", shop.name);
   if (!name || !name.trim()) return;
+  const address = prompt("Shop address:", shop.address || "");
+  if (address === null) return;
+  const phone = prompt("Phone number:", shop.phone || "");
+  if (phone === null) return;
   try {
-    await api("/api/stores/" + encodeURIComponent(shop.id), "PATCH", { name: name.trim() });
+    await api("/api/stores/" + encodeURIComponent(shop.id), "PATCH", { name: name.trim(), address: address.trim(), phone: phone.trim() });
     await loadShops();
     await loadQR();
   } catch (e) { alert(e.message); }
