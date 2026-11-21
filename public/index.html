@@ -774,6 +774,9 @@ async function editQR(code, oldUrl) {
     );
 
     await loadQR();
+    if (currentShopDetailId && !document.getElementById("shopDetailPanel").classList.contains("hidden")) {
+      openShopDetail(currentShopDetailId);
+    }
 
   } catch (e) {
 
