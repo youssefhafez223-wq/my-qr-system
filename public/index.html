@@ -362,7 +362,7 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
   <div id="shopsPanel" class="panel hidden">
     <h2>Manage Shops</h2>
     <p class="subtitle">Add, rename, or remove shops. Removing a shop only unlinks its QR codes.</p>
-    <div class="shopForm" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px"><div><label for="shopName">Shop Name *</label><input id="shopName" placeholder="Shop name" maxlength="100"></div><div><label for="shopPhone">Phone Number</label><input id="shopPhone" type="tel" placeholder="Phone number"></div><div style="grid-column:1/-1"><label for="shopAddress">Shop Address</label><input id="shopAddress" placeholder="Shop address"></div></div><button class="primary" onclick="addShop()">＋ Add Shop</button><div id="shopMessage"></div><div class="shopListHead"><span>Shop Name</span><span>Address</span><span>Phone</span><span>Actions</span></div><div id="shopList"></div>
+    <div class="shopForm" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px"><div><label for="shopName">Shop Name *</label><input id="shopName" placeholder="Shop name" maxlength="100"></div><div><label for="shopPhone">Phone Number</label><input id="shopPhone" type="tel" placeholder="Phone number"></div><div style="grid-column:1/-1"><label for="shopAddress">Shop Address</label><input id="shopAddress" placeholder="Shop address"></div></div><button class="primary" onclick="addShop()">＋ Add Shop</button><div id="shopMessage"></div><div class="searchField"><span aria-hidden="true">⌕</span><input id="shopSearch" type="search" placeholder="Search shops by name..." oninput="filterShopRows()" autocomplete="off"></div><div class="shopListHead"><span>Shop Name</span><span>Address</span><span>Phone</span><span>Actions</span></div><div id="shopList"></div>
     <button class="secondary" onclick="showSection('dashboardMain')">Back to Dashboard</button>
   </div>
 
@@ -909,7 +909,14 @@ async function openShops() {
   await loadShops();
 }
 
-async function loadShops() {
+async function filterShopRows() {
+  const query = (document.getElementById("shopSearch")?.value || "").trim().toLowerCase();
+  document.querySelectorAll("#shopList .shopRow").forEach(row => {
+    row.hidden = query && !row.dataset.search.includes(query);
+  });
+}
+
+function loadShops() {
   try {
     stores = await api("/api/stores");
     const list = document.getElementById("shopList");
@@ -921,6 +928,7 @@ async function loadShops() {
     stores.forEach(shop => {
       const row = document.createElement("div");
       row.className = "shopRow";
+      row.dataset.search = [shop.name, shop.address, shop.phone].join(" ").toLowerCase();
       const label = document.createElement("span");
       const shopTitle = document.createElement("strong");
       shopTitle.textContent = shop.name;
@@ -946,6 +954,7 @@ async function loadShops() {
       row.append(label, address, phone, actions);
       list.appendChild(row);
     });
+    filterShopRows();
   } catch (e) {
     document.getElementById("shopMessage").textContent = e.message;
   }
