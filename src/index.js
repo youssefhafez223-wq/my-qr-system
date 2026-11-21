@@ -294,7 +294,7 @@ export default {
       // Shop management
       if (url.pathname === "/api/stores" && request.method === "GET") {
         try {
-          const response = await fetch(`${supabaseUrl}/rest/v1/stores?select=id,name,slug,created_at&order=name.asc`, { headers });
+          const response = await fetch(`${supabaseUrl}/rest/v1/stores?select=id,name,slug,address,phone,created_at&order=name.asc`, { headers });
           if (!response.ok) return json({ error: "Could not load shops" }, 502);
           return json(await response.json());
         } catch (error) {
@@ -312,7 +312,7 @@ export default {
           const response = await fetch(`${supabaseUrl}/rest/v1/stores`, {
             method: "POST",
             headers: { ...headers, Prefer: "return=representation" },
-            body: JSON.stringify({ name, slug })
+            body: JSON.stringify({ name, slug, address: String(body.address || "").trim() || null, phone: String(body.phone || "").trim() || null })
           });
           if (!response.ok) {
             const detail = await response.text();
@@ -337,6 +337,8 @@ export default {
             if (!name || name.length > 100) return json({ error: "Invalid shop name" }, 400);
             update.name = name;
           }
+          if (body.address !== undefined) update.address = String(body.address || "").trim() || null;
+          if (body.phone !== undefined) update.phone = String(body.phone || "").trim() || null;
           if (Object.keys(update).length === 0) return json({ error: "Nothing to update" }, 400);
           const response = await fetch(`${supabaseUrl}/rest/v1/stores?id=eq.${encodeURIComponent(id)}`, {
             method: "PATCH",
