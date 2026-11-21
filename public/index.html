@@ -209,6 +209,12 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 #qrModal{background:#000d}.modalContent{border:1px solid #00dce8;box-shadow:0 0 30px #00dce833}
 @media(max-width:700px){body{padding:10px}.panel{padding:14px}.shopRow,.shopListHead{grid-template-columns:1fr;gap:6px}.shopListHead{display:none}.shopRow{align-items:start}h1{font-size:28px}}
 
+
+.brandHeader{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.brandHeader h1{margin:0;color:#e8f3ff;font-size:34px;letter-spacing:.5px}
+.brandLogo{display:block;width:54px;height:54px;flex:0 0 54px;filter:drop-shadow(0 0 9px #00dce888)}
+@media(max-width:650px){.brandHeader h1{font-size:28px}.brandLogo{width:46px;height:46px;flex-basis:46px}}
+
 </style>
 </head>
 
@@ -216,7 +222,13 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 
 <div class="container">
 
-<h1>QROMA</h1>
+<header class="brandHeader" aria-label="QROMA">
+  <svg class="brandLogo" viewBox="0 0 100 100" role="img" aria-label="QROMA logo">
+    <path d="M78 73 A39 39 0 1 1 83 49" fill="none" stroke="#00e5ee" stroke-width="12" stroke-linecap="round"/>
+    <path d="M49 49 L87 87" fill="none" stroke="#00e5ee" stroke-width="13" stroke-linecap="round"/>
+  </svg>
+  <h1>QROMA</h1>
+</header>
 <p class="subtitle">Dynamic QR Management Dashboard</p>
 
 <div id="loginPanel" class="panel">
