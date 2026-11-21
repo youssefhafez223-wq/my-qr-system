@@ -219,6 +219,19 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 .searchField span{font-size:25px;line-height:1}
 .searchField input{flex:1;min-width:0;padding:12px 2px;border:0;outline:0;background:transparent;color:#fff;font:inherit}
 .searchField input::placeholder{color:#9bb5d4}
+.shopPicker{position:relative;display:flex;align-items:center;gap:8px;width:100%;min-height:52px;margin:8px 0 14px;padding:0 10px;border:1px solid rgba(80,210,255,.65);border-radius:10px;background:rgba(8,20,43,.72);color:#fff}
+.shopPickerMain{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:1;min-width:0;min-height:48px;padding:10px 4px;border:0;background:transparent;color:#fff;text-align:left;font:inherit}
+.shopPickerMain span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shopPickerChevron{font-size:22px;color:#56eaff}
+.shopPickerSearch{flex:1;min-width:0;height:46px;padding:8px 4px;border:0;outline:0;background:transparent;color:#fff;font:inherit}
+.shopPickerSearch::placeholder{color:#9bb5d4}
+.shopPickerSearchToggle{flex:0 0 38px;width:38px;height:38px;border:0;border-radius:8px;background:transparent;color:#55eaff;font-size:27px;line-height:1}
+.shopPickerSearchToggle:active,.shopPickerMain:active{background:rgba(60,190,255,.12)}
+.shopPickerOptions{position:absolute;z-index:30;top:calc(100% + 6px);left:0;right:0;max-height:230px;overflow-y:auto;padding:6px;border:1px solid rgba(80,210,255,.65);border-radius:10px;background:#10284d;box-shadow:0 12px 28px rgba(0,0,0,.4)}
+.shopPickerOption{display:block;width:100%;padding:12px 10px;border:0;border-bottom:1px solid rgba(130,190,255,.14);background:transparent;color:#eaf5ff;text-align:left;font:inherit}
+.shopPickerOption:last-child{border-bottom:0}
+.shopPickerOption:active{background:rgba(0,220,255,.18)}
+.shopPickerEmpty{padding:12px;color:#a9c5e4;text-align:center}
 .qrSearchField{max-width:460px}
 /* Keep QR table labels and short values on one line; scroll horizontally on small screens */
 .qrTable{min-width:1120px;table-layout:auto}
@@ -293,11 +306,15 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 
 
     <label for="newStoreSearch">Assign to shop (optional)</label>
-    <div class="searchField">
-      <span aria-hidden="true">⌕</span>
-      <input id="newStoreSearch" type="search" placeholder="Search shops..." oninput="filterNewStoreOptions()" autocomplete="off">
+    <div class="shopPicker" id="newStorePicker">
+      <button type="button" class="shopPickerMain" onclick="toggleNewStoreMenu()" aria-label="Choose a shop">
+        <span id="newStoreSelected">No shop</span><span class="shopPickerChevron">⌄</span>
+      </button>
+      <input id="newStoreSearch" class="shopPickerSearch" type="search" placeholder="Search shops..." oninput="renderNewStoreOptions()" autocomplete="off" hidden>
+      <button type="button" class="shopPickerSearchToggle" onclick="toggleNewStoreSearch()" aria-label="Search shops">⌕</button>
+      <div id="newStoreOptions" class="shopPickerOptions" hidden></div>
     </div>
-    <select id="newStore" style="width:100%;padding:12px;margin:8px 0 14px;background:#111;color:white;border:1px solid #444;border-radius:7px">
+    <select id="newStore" hidden>
       <option value="">No shop</option>
     </select>
 
@@ -468,19 +485,79 @@ function filterQRRows() {
   });
 }
 
-function filterNewStoreOptions() {
-  const query = (document.getElementById("newStoreSearch")?.value || "").trim().toLowerCase();
+function toggleNewStoreMenu() {
+  const menu = document.getElementById("newStoreOptions");
+  if (!menu) return;
+  menu.hidden = !menu.hidden;
+  if (!menu.hidden) renderNewStoreOptions();
+}
+
+function toggleNewStoreSearch() {
+  const search = document.getElementById("newStoreSearch");
+  const selected = document.getElementById("newStoreSelected");
+  const menu = document.getElementById("newStoreOptions");
+  if (!search || !selected || !menu) return;
+  const opening = search.hidden;
+  search.hidden = !opening;
+  selected.hidden = opening;
+  if (opening) {
+    menu.hidden = false;
+    renderNewStoreOptions();
+    search.focus();
+  } else {
+    search.value = "";
+    renderNewStoreOptions();
+  }
+}
+
+function renderNewStoreOptions() {
+  const menu = document.getElementById("newStoreOptions");
+  const search = document.getElementById("newStoreSearch");
   const select = document.getElementById("newStore");
-  if (!select) return;
-  const selected = select.value;
-  select.innerHTML = '<option value="">No shop</option>';
-  stores.filter(shop => shop.name.toLowerCase().includes(query)).forEach(shop => {
-    const option = document.createElement("option");
-    option.value = shop.id;
+  if (!menu || !select) return;
+  const query = (search?.value || "").trim().toLocaleLowerCase();
+  const matches = stores.filter(shop => String(shop.name || "").toLocaleLowerCase().includes(query));
+  menu.innerHTML = "";
+
+  const noShop = document.createElement("button");
+  noShop.type = "button";
+  noShop.className = "shopPickerOption";
+  noShop.textContent = "No shop";
+  noShop.onclick = () => chooseNewStore("");
+  menu.appendChild(noShop);
+
+  matches.forEach(shop => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "shopPickerOption";
     option.textContent = shop.name;
-    select.appendChild(option);
+    option.onclick = () => chooseNewStore(shop.id);
+    menu.appendChild(option);
   });
-  if ([...select.options].some(option => option.value === selected)) select.value = selected;
+
+  if (matches.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "shopPickerEmpty";
+    empty.textContent = "No matching shops found";
+    menu.appendChild(empty);
+  }
+}
+
+function chooseNewStore(id) {
+  const select = document.getElementById("newStore");
+  const selected = document.getElementById("newStoreSelected");
+  const search = document.getElementById("newStoreSearch");
+  const menu = document.getElementById("newStoreOptions");
+  if (!select || !selected || !menu) return;
+  select.value = id;
+  const shop = stores.find(item => String(item.id) === String(id));
+  selected.textContent = shop ? shop.name : "No shop";
+  if (search) {
+    search.value = "";
+    search.hidden = true;
+  }
+  selected.hidden = false;
+  menu.hidden = true;
 }
 
 async function loadQR() {
@@ -608,7 +685,7 @@ async function loadQR() {
     });
 
     filterQRRows();
-    filterNewStoreOptions();
+    renderNewStoreOptions();
 
   } catch (e) {
 
