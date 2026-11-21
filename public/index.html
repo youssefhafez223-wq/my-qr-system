@@ -186,6 +186,7 @@ th {
 
 
 /* QROMA turquoise dashboard refresh */
+.statsGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-bottom:18px}.statCard{display:flex;align-items:center;gap:18px;padding:20px 24px;border:1px solid #16465d;border-radius:16px;background:linear-gradient(135deg,#0c263b,#071727);box-shadow:0 8px 24px #0005}.statCard strong{display:block;font-size:34px;color:#f5fbff}.statCard span{display:block;color:#b5c9d8;margin-top:3px}.statIcon{font-size:36px;font-weight:bold}.statIcon.gold{color:#f5c94b}.statIcon.blue{color:#09aef5}.statIcon.teal{color:#00e6db}@media(max-width:700px){.statsGrid{grid-template-columns:1fr;gap:10px}.statCard{padding:14px}.statCard strong{font-size:28px}}
 :root{color-scheme:dark;--bg:#04111f;--panel:#081c2d;--line:#12445b;--cyan:#00e5ee;--muted:#a9c0d2}
 body{font-family:Inter,Arial,sans-serif;background:radial-gradient(ellipse at 50% -15%,#12334b 0,#061525 48%,#020b14 100%);color:#f4f9ff;padding:22px}
 .container{max-width:1200px;margin:auto} h1{color:#f7fbff;font-size:34px}
@@ -232,21 +233,12 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 
 <div id="dashboard" class="hidden">
 
-  <div class="panel">
-    <h2>Dashboard Overview</h2>
-
-    <p>
-      Total QR Codes:
-      <strong id="total">0</strong>
-    </p>
-
-    <p style="margin-top: 12px;">
-      Total Scans:
-      <strong id="totalScans">0</strong>
-    </p>
-
-    <button class="secondary" onclick="logout()">Logout</button>
+  <div class="statsGrid">
+    <div class="statCard"><div class="statIcon gold">▦</div><div><strong id="total">0</strong><span>Total QR Codes</span></div></div>
+    <div class="statCard"><div class="statIcon blue">⌁</div><div><strong id="totalScans">0</strong><span>Total Scans</span></div></div>
+    <div class="statCard"><div class="statIcon teal">▣</div><div><strong id="totalShops">0</strong><span>Total Shops</span></div></div>
   </div>
+  <div style="display:flex;justify-content:flex-end;margin:0 0 14px"><button class="secondary" onclick="logout()">Logout</button></div>
 
   <div class="panel">
     <h2>Tools</h2>
@@ -441,6 +433,8 @@ async function loadQR() {
     const [data, shopData] = await Promise.all([api("/api/qr"), api("/api/stores")]);
     const items = Array.isArray(data) ? data : (data.qr_codes || data.data || []);
     stores = Array.isArray(shopData) ? shopData : [];
+    const totalShopsEl = document.getElementById("totalShops");
+    if (totalShopsEl) totalShopsEl.textContent = stores.length;
     const shopSelect = document.getElementById("newStore");
     if (shopSelect) {
       const selected = shopSelect.value;
