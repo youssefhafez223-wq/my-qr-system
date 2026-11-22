@@ -891,46 +891,44 @@ async function loadShops() {
     stores = await api("/api/stores");
     const list = document.getElementById("shopList");
     list.innerHTML = "";
-    if (!stores.length) {
-      list.textContent = "No shops added yet.";
-      return;
-    }
+    if (!stores.length) { list.textContent = "No shops added yet."; return; }
     stores.forEach(shop => {
       const row = document.createElement("div");
       row.className = "shopRow";
-      row.dataset.search = [shop.name, shop.address, shop.phone].join(" ").toLowerCase();
+      row.dataset.search = [shop.name, shop.address, shop.phone, shop.destination_url].join(" ").toLowerCase();
       row.dataset.name = String(shop.name || "").toLowerCase();
-      const label = document.createElement("span");
-      label.className = "shopNameCell";
-      const shopTitle = document.createElement("strong");
-      shopTitle.textContent = shop.name;
-      label.appendChild(shopTitle);
+      const name = document.createElement("span");
+      name.className = "shopNameCell";
+      name.textContent = shop.name;
       const address = document.createElement("span");
       address.className = "shopAddressCell";
       address.textContent = shop.address || "—";
       const phone = document.createElement("span");
       phone.className = "shopPhoneCell";
       phone.textContent = shop.phone || "—";
+      const url = document.createElement("span");
+      url.className = "shopUrlCell";
+      url.textContent = shop.destination_url || "—";
       const actions = document.createElement("div");
       actions.className = "shopActionsCell";
+      const generate = document.createElement("button");
+      generate.className = "primary";
+      generate.textContent = "Generate Code";
+      generate.onclick = () => generateShopQR(shop);
       const edit = document.createElement("button");
       edit.className = "secondary";
       edit.textContent = "Edit";
       edit.onclick = () => editShop(shop);
-      const rename = document.createElement("button");
-      rename.className = "secondary";
-      rename.textContent = "Rename";
-      rename.onclick = () => renameShop(shop);
       const remove = document.createElement("button");
       remove.className = "danger";
       remove.textContent = "Remove";
       remove.onclick = () => removeShop(shop);
-      const view = document.createElement("button");
-      view.className = "primary";
-      view.textContent = "View QR Codes";
-      view.onclick = () => openShopDetail(shop.id);
-      actions.append(view, edit, rename, remove);
-      row.append(label, address, phone, actions);
+      const toggle = document.createElement("button");
+      toggle.className = shop.is_active ? "success" : "secondary";
+      toggle.textContent = shop.is_active ? "Disable" : "Enable";
+      toggle.onclick = () => toggleShop(shop);
+      actions.append(generate, edit, remove, toggle);
+      row.append(name, address, phone, url, actions);
       list.appendChild(row);
     });
     filterShopRows();
@@ -944,12 +942,14 @@ async function addShop() {
   const name = input.value.trim();
   const address = document.getElementById("shopAddress").value.trim();
   const phone = document.getElementById("shopPhone").value.trim();
-  if (!name) return alert("Enter a shop name");
+  const destination_url = document.getElementById("shopUrl").value.trim();
+  if (!name || !destination_url) return alert("Enter a shop name and Shop URL.");
   try {
-    await api("/api/stores", "POST", { name, address, phone });
+    await api("/api/stores", "POST", { name, address, phone, destination_url });
     input.value = "";
     document.getElementById("shopAddress").value = "";
     document.getElementById("shopPhone").value = "";
+    document.getElementById("shopUrl").value = "";
     document.getElementById("shopMessage").textContent = "Shop added.";
     await loadShops();
     await loadQR();
@@ -963,24 +963,39 @@ async function editShop(shop) {
   if (address === null) return;
   const phone = prompt("Phone number:", shop.phone || "");
   if (phone === null) return;
+  const destination_url = prompt("Shop URL:", shop.destination_url || "");
+  if (destination_url === null || !destination_url.trim()) return;
   try {
-    await api("/api/stores/" + encodeURIComponent(shop.id), "PATCH", { name: name.trim(), address: address.trim(), phone: phone.trim() });
+    await api("/api/stores/" + encodeURIComponent(shop.id), "PATCH", {
+      name: name.trim(), address: address.trim(), phone: phone.trim(), destination_url: destination_url.trim()
+    });
     await loadShops();
     await loadQR();
   } catch (e) { alert(e.message); }
 }
-async function renameShop(shop) {
-  const name = prompt("New shop name:", shop.name);
-  if (name === null || !name.trim()) return;
+
+async function generateShopQR(shop) {
   try {
-    await api("/api/stores/" + encodeURIComponent(shop.id), "PATCH", { name: name.trim() });
+    const result = await api("/api/stores/" + encodeURIComponent(shop.id) + "/generate", "POST", {});
+    await loadQR();
+    const code = result.code || result[0]?.code;
+    if (!code) throw new Error("QR code was created, but its code was not returned.");
+    showQR(code);
+  } catch (e) { alert(e.message); }
+}
+
+async function toggleShop(shop) {
+  const action = shop.is_active ? "disable" : "enable";
+  if (!confirm((shop.is_active ? "Disable " : "Enable ") + shop.name + "?")) return;
+  try {
+    await api("/api/stores/" + encodeURIComponent(shop.id), "PATCH", { is_active: !shop.is_active });
     await loadShops();
     await loadQR();
   } catch (e) { alert(e.message); }
 }
 
 async function removeShop(shop) {
-  if (!confirm("Remove this shop? Its QR codes and scan history will be kept; they will become unassigned.")) return;
+  if (!confirm("Remove this shop? Its QR code and scan history will be kept, but the shop link will be removed.")) return;
   try {
     await api("/api/stores/" + encodeURIComponent(shop.id), "DELETE");
     await loadShops();
