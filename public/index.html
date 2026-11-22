@@ -258,6 +258,36 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 .editQrModal{width:min(520px,100%);background:#081c2d;border:1px solid var(--cyan);border-radius:16px;padding:22px;box-shadow:0 15px 50px #0009}
 .editQrModal label{display:block;margin-top:10px;color:var(--muted)}
 .editQrModal .modalActions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:14px}
+
+/* QROMA mobile shop list: keep the five columns in one horizontally scrollable row */
+#shopList {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+}
+.shopRow, .shopListHead {
+  min-width: 1000px;
+  grid-template-columns: minmax(150px,1.1fr) minmax(150px,1fr) minmax(120px,.8fr) minmax(190px,1.3fr) minmax(380px,1.8fr);
+}
+.shopActionsCell {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 380px;
+}
+.shopActionsCell button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+@media(max-width:700px) {
+  .shopRow, .shopListHead {
+    grid-template-columns: minmax(150px,1.1fr) minmax(150px,1fr) minmax(120px,.8fr) minmax(190px,1.3fr) minmax(380px,1.8fr);
+  }
+  .shopRow { align-items: center; }
+}
+
 </style>
 </head>
 
