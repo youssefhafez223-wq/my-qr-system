@@ -595,168 +595,68 @@ function chooseNewStore(id) {
 }
 
 async function loadQR() {
-
   try {
-
     const [data, shopData] = await Promise.all([api("/api/qr"), api("/api/stores")]);
-    const items = Array.isArray(data) ? data : (data.qr_codes || data.data || []);
+    const items = Array.isArray(data) ? data : [];
     qrItems = items;
     stores = Array.isArray(shopData) ? shopData : [];
-    const totalShopsEl = document.getElementById("totalShops");
-    if (totalShopsEl) totalShopsEl.textContent = stores.length;
-    const shopSelect = document.getElementById("newStore");
-    if (shopSelect) {
-      const selected = shopSelect.value;
-      shopSelect.innerHTML = '<option value="">No shop</option>';
-      stores.forEach(shop => {
-        const option = document.createElement("option");
-        option.value = shop.id;
-        option.textContent = shop.name;
-        shopSelect.appendChild(option);
-      });
-      shopSelect.value = selected;
-    }
-
+    document.getElementById("totalShops").textContent = stores.length;
     document.getElementById("total").textContent = items.length;
-
-    const totalScans = items.reduce(
-      (sum, item) => sum + (Number(item.scan_count) || 0),
-      0
-    );
-
-    document.getElementById("totalScans").textContent = totalScans;
-
     const list = document.getElementById("qrList");
-
     list.innerHTML = "";
-
     items.forEach(item => {
-
       const tr = document.createElement("tr");
-
-      const code = document.createElement("td");
-      code.textContent = item.title || item.code;
-
-      const shopName = stores.find(shop => shop.id === item.store_id)?.name || "No shop";
-      tr.dataset.search = [item.title, item.code, shopName, item.destination_url].join(" ").toLowerCase();
-
-      const shopCell = document.createElement("td");
-      shopCell.textContent = shopName;
-      if (item.store_id) {
-        const viewShopBtn = document.createElement("button");
-        viewShopBtn.className = "secondary";
-        viewShopBtn.textContent = "View Shop";
-        viewShopBtn.onclick = () => openShopDetail(item.store_id);
-        shopCell.appendChild(viewShopBtn);
-      }
-
-      const url = document.createElement("td");
-      url.className = "destinationCell";
-      url.textContent = item.destination_url;
-
+      tr.dataset.search = [item.title, item.code, item.destination_url].join(" ").toLowerCase();
+      const destination = document.createElement("td");
+      destination.className = "destinationCell";
+      destination.textContent = item.destination_url;
       const status = document.createElement("td");
-
       status.textContent = item.is_active ? "Active" : "Disabled";
-
       status.className = "status";
-
-      // Scan Count
-      const scans = document.createElement("td");
-      scans.textContent = item.scan_count ?? "—";
-
-      // Last Scanned
-      const lastScanned = document.createElement("td");
-
-      lastScanned.textContent = item.last_scanned_at
-        ? new Date(item.last_scanned_at).toLocaleString()
-        : "Never";
-
       const actions = document.createElement("td");
-
       const qrBtn = document.createElement("button");
-
       qrBtn.className = "primary";
       qrBtn.textContent = "Generate QR";
       qrBtn.onclick = () => showQR(item.code);
-
       const editBtn = document.createElement("button");
-
       editBtn.className = "secondary";
       editBtn.textContent = "Edit";
       editBtn.onclick = () => editQR(item);
-
       const toggleBtn = document.createElement("button");
-
       toggleBtn.className = "success";
-
       toggleBtn.textContent = item.is_active ? "Disable" : "Enable";
-
       toggleBtn.onclick = () => toggleQR(item.code, item.is_active);
-
       const deleteBtn = document.createElement("button");
-
       deleteBtn.className = "danger";
       deleteBtn.textContent = "Delete";
       deleteBtn.onclick = () => deleteQR(item.code);
-
       actions.append(qrBtn, editBtn, toggleBtn, deleteBtn);
-
-      tr.append(code, shopCell, url, status, scans, lastScanned, actions);
-
+      tr.append(destination, status, actions);
       list.appendChild(tr);
-
     });
-
     filterQRRows();
-    renderNewStoreOptions();
-
   } catch (e) {
-
     document.getElementById("message").textContent = e.message;
-
   }
 }
 
 async function addQR() {
-
-  const code = document.getElementById("newCode").value.trim();
-
-  const url = document.getElementById("newUrl").value.trim();
-
-  if (!code || !url) {
-    return alert("Enter code and URL");
-  }
-
+  const title = document.getElementById("newTitle").value.trim();
+  const destination_url = document.getElementById("newUrl").value.trim();
+  if (!title || !destination_url) return alert("Enter a QR code name and destination URL.");
   try {
-
-    await api("/api/qr", "POST", {
-      title: document.getElementById("newTitle").value.trim() || code,
-      code,
-      destination_url: url,
-      store_id: document.getElementById("newStore").value || null
-    });
-
+    await api("/api/qr", "POST", { title, destination_url });
     document.getElementById("newTitle").value = "";
-    document.getElementById("newCode").value = "";
     document.getElementById("newUrl").value = "";
-
-    document.getElementById("message").textContent =
-      "QR added successfully";
-
+    document.getElementById("message").textContent = "QR added successfully";
     await loadQR();
-
-  } catch (e) {
-
-    alert(e.message);
-
-  }
+  } catch (e) { alert(e.message); }
 }
 
 function editQR(item) {
   editingQrCode = item.code;
   document.getElementById("editQrTitle").value = item.title || item.code;
   document.getElementById("editQrUrl").value = item.destination_url || "";
-  
   document.getElementById("editQrOverlay").classList.add("open");
 }
 function closeEditQR() {
