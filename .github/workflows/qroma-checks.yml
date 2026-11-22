@@ -1,0 +1,34 @@
+name: QROMA syntax checks
+
+on:
+  push:
+    branches:
+      - feature/qroma-shop-qr-rework
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check Worker JavaScript syntax
+        run: node --check src/index.js
+      - name: Check dashboard JavaScript syntax
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          html = Path("public/index.html").read_text()
+          scripts = re.findall(r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>", html, re.I)
+          scripts = [script for script in scripts if script.strip()]
+          if not scripts:
+              raise SystemExit("No inline dashboard script found")
+          Path("/tmp/qroma-dashboard.js").write_text("\\n".join(scripts))
+          print(f"Extracted {len(scripts)} inline script(s)")
+          PY
+          node --check /tmp/qroma-dashboard.js
