@@ -12,7 +12,7 @@ binding = "ASSETS"
 SUPABASE_URL = "https://uzsikhbkeophujpeuvjk.supabase.co"
 
 [previews.vars]
-SUPABASE_URL = "https://uzsikhbkeophujpeuvjk.supabase.co"
+SUPABASE_URL = "https://iwgtrlwnjjdkraiedgoz.supabase.co"
 
 [observability]
 enabled = true

@@ -294,7 +294,7 @@ export default {
       // Shop management
       if (url.pathname === "/api/stores" && request.method === "GET") {
         try {
-          const response = await fetch(`${supabaseUrl}/rest/v1/stores?select=id,name,slug,address,phone,created_at&order=name.asc`, { headers });
+          const response = await fetch(`${supabaseUrl}/rest/v1/stores?select=id,name,slug,address,phone,destination_url,is_active,created_at&order=name.asc`, { headers });
           if (!response.ok) return json({ error: "Could not load shops" }, 502);
           return json(await response.json());
         } catch (error) {
@@ -308,11 +308,14 @@ export default {
           const body = await request.json();
           const name = String(body.name || "").trim();
           if (!name || name.length > 100) return json({ error: "Enter a shop name (up to 100 characters)" }, 400);
+          let destination;
+          try { destination = new URL(String(body.destination_url || "")); } catch { return json({ error: "Enter a valid Shop URL" }, 400); }
+          if (!["http:", "https:"].includes(destination.protocol)) return json({ error: "Shop URL must start with http:// or https://" }, 400);
           const slug = "shop-" + crypto.randomUUID().slice(0, 8);
           const response = await fetch(`${supabaseUrl}/rest/v1/stores`, {
             method: "POST",
             headers: { ...headers, Prefer: "return=representation" },
-            body: JSON.stringify({ name, slug, address: String(body.address || "").trim() || null, phone: String(body.phone || "").trim() || null })
+            body: JSON.stringify({ name, slug, address: String(body.address || "").trim() || null, phone: String(body.phone || "").trim() || null, destination_url: destination.toString(), is_active: true })
           });
           if (!response.ok) {
             const detail = await response.text();
@@ -339,6 +342,13 @@ export default {
           }
           if (body.address !== undefined) update.address = String(body.address || "").trim() || null;
           if (body.phone !== undefined) update.phone = String(body.phone || "").trim() || null;
+          if (body.destination_url !== undefined) {
+            let destination;
+            try { destination = new URL(String(body.destination_url || "")); } catch { return json({ error: "Invalid Shop URL" }, 400); }
+            if (!["http:", "https:"].includes(destination.protocol)) return json({ error: "Shop URL must start with http:// or https://" }, 400);
+            update.destination_url = destination.toString();
+          }
+          if (body.is_active !== undefined) update.is_active = Boolean(body.is_active);
           if (Object.keys(update).length === 0) return json({ error: "Nothing to update" }, 400);
           const response = await fetch(`${supabaseUrl}/rest/v1/stores?id=eq.${encodeURIComponent(id)}`, {
             method: "PATCH",
@@ -346,10 +356,65 @@ export default {
             body: JSON.stringify(update)
           });
           if (!response.ok) return json({ error: "Could not update shop" }, 502);
-          return json(await response.json());
+          const updatedShop = await response.json();
+          const qrUpdate = {};
+          if (update.name !== undefined) qrUpdate.title = update.name;
+          if (update.destination_url !== undefined) qrUpdate.destination_url = update.destination_url;
+          if (update.is_active !== undefined) qrUpdate.is_active = update.is_active;
+          const savedShop = Array.isArray(updatedShop) ? updatedShop[0] : null;
+          if (Object.keys(qrUpdate).length && savedShop?.slug) {
+            // Sync only the shop's dedicated QR (code = shop slug).
+            // Legacy QR codes linked to this shop keep their own destinations.
+            const sync = await fetch(`${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(savedShop.slug)}&store_id=eq.${encodeURIComponent(id)}`, {
+              method: "PATCH", headers: { ...headers, Prefer: "return=minimal" }, body: JSON.stringify(qrUpdate)
+            });
+            if (!sync.ok) return json({ error: "Shop was updated, but its dedicated QR code could not be synchronized. Please retry Edit." }, 502);
+          }
+          return json(updatedShop);
         } catch (error) {
           console.error("Update shop failed:", error);
           return json({ error: "Invalid shop data" }, 400);
+        }
+      }
+
+      if (url.pathname.startsWith("/api/stores/") && url.pathname.endsWith("/generate") && request.method === "POST") {
+        try {
+          const id = decodeURIComponent(url.pathname.slice("/api/stores/".length, -"/generate".length));
+          if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Invalid shop ID" }, 400);
+          const storeResponse = await fetch(`${supabaseUrl}/rest/v1/stores?id=eq.${encodeURIComponent(id)}&select=id,name,slug,destination_url,is_active&limit=1`, { headers });
+          if (!storeResponse.ok) return json({ error: "Could not load shop" }, 502);
+          const shops = await storeResponse.json();
+          const shop = shops[0];
+          if (!shop) return json({ error: "Shop not found" }, 404);
+          if (!shop.destination_url) return json({ error: "Add a Shop URL in Edit before generating its QR code." }, 400);
+          // Reuse only the dedicated shop QR whose permanent code equals the shop slug.
+          // Do not hijack older QR codes that happen to be linked to the same shop.
+          const existingResponse = await fetch(`${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(shop.slug)}&store_id=eq.${encodeURIComponent(id)}&select=code&limit=1`, { headers });
+          if (!existingResponse.ok) return json({ error: "Could not check existing shop QR code" }, 502);
+          const existing = await existingResponse.json();
+          if (existing.length) {
+            const code = existing[0].code;
+            const sync = await fetch(`${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}`, {
+              method: "PATCH", headers: { ...headers, Prefer: "return=minimal" },
+              body: JSON.stringify({ title: shop.name, destination_url: shop.destination_url, is_active: shop.is_active })
+            });
+            if (!sync.ok) return json({ error: "Could not refresh the shop QR code" }, 502);
+            return json({ code, existing: true });
+          }
+          const code = shop.slug;
+          const created = await fetch(`${supabaseUrl}/rest/v1/qr_codes`, {
+            method: "POST", headers: { ...headers, Prefer: "return=representation" },
+            body: JSON.stringify({ title: shop.name, code, destination_url: shop.destination_url, is_active: shop.is_active, store_id: id })
+          });
+          if (!created.ok) {
+            const detail = await created.text();
+            console.error("Generate shop QR failed:", created.status, detail);
+            return json({ error: "Could not generate the shop QR code" }, 502);
+          }
+          return json({ code, existing: false }, 201);
+        } catch (error) {
+          console.error("Generate shop QR failed:", error);
+          return json({ error: "Could not generate the shop QR code" }, 502);
         }
       }
 
@@ -380,7 +445,7 @@ export default {
       if (url.pathname === "/api/qr" && request.method === "GET") {
         try {
           const response = await fetch(
-            `${supabaseUrl}/rest/v1/qr_codes?select=code,destination_url,is_active,store_id&order=code.asc`,
+            `${supabaseUrl}/rest/v1/qr_codes?select=title,code,destination_url,is_active,store_id&order=code.asc`,
             { headers }
           );
 
@@ -442,7 +507,9 @@ export default {
         try {
           const body = await request.json();
 
-          const code = String(body.code || "").trim();
+          const code = body.code
+            ? String(body.code).trim()
+            : "q-" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 
           if (!/^[a-zA-Z0-9_-]+$/.test(code)) {
             return json({ error: "Invalid QR code name" }, 400);
@@ -469,7 +536,7 @@ export default {
                 Prefer: "return=representation"
               },
               body: JSON.stringify({
-                title: code,
+                title: String(body.title || "").trim() || code,
                 code,
                 destination_url: destination.toString(),
                 is_active: true,
@@ -532,6 +599,12 @@ export default {
           const body = await request.json();
           const update = {};
 
+          if (body.title !== undefined) {
+            const title = String(body.title || "").trim();
+            if (!title || title.length > 120) return json({ error: "QR name is required (up to 120 characters)" }, 400);
+            update.title = title;
+          }
+
           if (body.destination_url !== undefined) {
             let destination;
 
@@ -592,6 +665,31 @@ export default {
         }
       }
 
+      // Scan counter management.
+      if (url.pathname === "/api/scans/manage" && request.method === "POST") {
+        try {
+          const body = await request.json();
+          const action = String(body.action || "");
+          if (!["reset_counters", "delete_all_history"].includes(action)) {
+            return json({ error: "Invalid scan management action" }, 400);
+          }
+          const response = await fetch(`${supabaseUrl}/rest/v1/rpc/qroma_manage_scans`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ action })
+          });
+          if (!response.ok) {
+            const detail = await response.text();
+            console.error("Scan management failed:", response.status, detail);
+            return json({ error: "Could not update scan records" }, 502);
+          }
+          return json(await response.json());
+        } catch (error) {
+          console.error("Scan management failed:", error);
+          return json({ error: "Could not update scan records" }, 502);
+        }
+      }
+
       // Delete QR code
       if (url.pathname.startsWith("/api/qr/") && request.method === "DELETE") {
         try {
@@ -601,6 +699,17 @@ export default {
 
           if (!/^[a-zA-Z0-9_-]+$/.test(code)) {
             return json({ error: "Invalid QR code" }, 400);
+          }
+
+          // Keep printed links and scan history intact: only delete QR codes with no scans.
+          const scansResponse = await fetch(
+            `${supabaseUrl}/rest/v1/qr_scans?code=eq.${encodeURIComponent(code)}&select=id&limit=1`,
+            { headers }
+          );
+          if (!scansResponse.ok) return json({ error: "Could not verify QR scan history. Please retry." }, 502);
+          const scans = await scansResponse.json();
+          if (scans.length) {
+            return json({ error: "This QR code has scan history. Disable it instead to preserve its permanent link and history." }, 409);
           }
 
           const response = await fetch(
