@@ -290,8 +290,8 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 
   <div class="statsGrid">
     <div class="statCard"><div class="statIcon gold">▦</div><div><strong id="total">0</strong><span>Total QR Codes</span></div></div>
-    
     <div class="statCard"><div class="statIcon teal">▣</div><div><strong id="totalShops">0</strong><span>Total Shops</span></div></div>
+    <div class="statCard"><div class="statIcon blue">⌁</div><div><strong id="totalScans">0</strong><span>Total Scans</span></div></div>
   </div>
   <div style="display:flex;justify-content:flex-end;margin:0 0 14px"><button class="secondary" onclick="logout()">Logout</button></div>
 
@@ -602,6 +602,7 @@ async function loadQR() {
     stores = Array.isArray(shopData) ? shopData : [];
     document.getElementById("totalShops").textContent = stores.length;
     document.getElementById("total").textContent = items.length;
+    document.getElementById("totalScans").textContent = items.reduce((sum, item) => sum + (Number(item.scan_count) || 0), 0).toLocaleString();
     const list = document.getElementById("qrList");
     list.innerHTML = "";
     items.forEach(item => {
