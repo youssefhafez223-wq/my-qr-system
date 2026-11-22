@@ -202,12 +202,12 @@ table{width:100%;border-collapse:collapse;margin-top:15px;min-width:850px}
 th,td{padding:14px 12px;border-bottom:1px solid #19384d;text-align:left;overflow-wrap:anywhere}
 th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 .status{font-weight:700}#message,#shopMessage{margin:12px 0;color:#00e4ed}
-.shopRow,.shopListHead{display:grid;grid-template-columns:minmax(140px,1.3fr) minmax(140px,1fr) minmax(120px,1fr) auto;align-items:center;gap:12px;padding:14px 12px;border-bottom:1px solid #17394f}
+.shopRow,.shopListHead{display:grid;grid-template-columns:minmax(130px,1.1fr) minmax(130px,1fr) minmax(110px,.8fr) minmax(170px,1.3fr) minmax(230px,1.5fr);align-items:center;gap:10px;padding:14px 12px;border-bottom:1px solid #17394f}
 .shopRow span{overflow-wrap:anywhere}#shopList{margin-top:14px;border:1px solid #17445a;border-radius:12px;overflow:hidden}
 .shopListHead{color:#00e4ed;background:#071827;font-weight:bold}
 #scanVideo{width:100%;max-width:480px;border-radius:10px;background:#000;margin-top:12px}
 #qrModal{background:#000d}.modalContent{border:1px solid #00dce8;box-shadow:0 0 30px #00dce833}
-@media(max-width:700px){body{padding:10px}.panel{padding:14px}.shopRow,.shopListHead{grid-template-columns:1fr;gap:6px}.shopListHead{display:none}.shopRow{align-items:start}.shopNameCell:before{content:"Shop Name: ";color:var(--cyan);font-weight:700}.shopAddressCell:before{content:"Address: ";color:var(--cyan);font-weight:700}.shopPhoneCell:before{content:"Phone: ";color:var(--cyan);font-weight:700}.shopActionsCell:before{content:"Actions: ";display:block;color:var(--cyan);font-weight:700;margin-bottom:4px}h1{font-size:28px}}
+@media(max-width:700px){body{padding:10px}.panel{padding:14px}.shopRow,.shopListHead{grid-template-columns:1fr;gap:6px}.shopListHead{display:none}.shopRow{align-items:start}.shopNameCell:before{content:"Shop Name: ";color:var(--cyan);font-weight:700}.shopAddressCell:before{content:"Address: ";color:var(--cyan);font-weight:700}.shopPhoneCell:before{content:"Phone: ";color:var(--cyan);font-weight:700}.shopUrlCell:before{content:"Shop URL: ";color:var(--cyan);font-weight:700}.shopActionsCell:before{content:"Actions: ";display:block;color:var(--cyan);font-weight:700;margin-bottom:4px}h1{font-size:28px}}
 
 
 .brandHeader{display:flex;align-items:center;gap:12px;margin-bottom:8px}
@@ -308,32 +308,10 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
   <div id="dashboardMain">
   <div class="panel">
     <h2>Add New QR Code</h2>
-
     <label for="newTitle">QR Code Name</label>
-    <input id="newTitle" placeholder="QR code display name">
-    <label for="newCode">Permanent QR ID</label>
-    <input id="newCode" placeholder="Permanent QR ID (example: shop001)">
-
-    <input
-      id="newUrl"
-      type="url"
-      placeholder="Destination URL"
-    >
-
-
-    <label for="newStoreSearch">Assigned Shop (optional)</label>
-    <div class="shopPicker" id="newStorePicker">
-      <button type="button" class="shopPickerMain" onclick="toggleNewStoreMenu()" aria-label="Choose a shop">
-        <span id="newStoreSelected">No shop</span><span class="shopPickerChevron">⌄</span>
-      </button>
-      <input id="newStoreSearch" class="shopPickerSearch" type="search" placeholder="Search shops..." oninput="renderNewStoreOptions()" autocomplete="off" hidden>
-      <button type="button" class="shopPickerSearchToggle" onclick="toggleNewStoreSearch()" aria-label="Search shops">⌕</button>
-      <div id="newStoreOptions" class="shopPickerOptions" hidden></div>
-    </div>
-    <select id="newStore" hidden>
-      <option value="">No shop</option>
-    </select>
-
+    <input id="newTitle" placeholder="Enter QR code name" maxlength="120">
+    <label for="newUrl">Destination URL</label>
+    <input id="newUrl" type="url" placeholder="https://example.com">
     <button class="primary" onclick="addQR()">Add QR Code</button>
   </div>
 
@@ -350,12 +328,8 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
       <table class="qrTable">
         <thead>
           <tr>
-            <th>Code</th>
-            <th>Assigned Shop</th>
             <th>Destination</th>
             <th>Status</th>
-            <th>Scan Count</th>
-            <th>Last Scanned</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -371,7 +345,15 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
   <div id="shopsPanel" class="panel hidden">
     <h2>Manage Shops</h2>
     <p class="subtitle">Add, rename, or remove shops. Removing a shop only unlinks its QR codes.</p>
-    <div class="shopForm" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px"><div><label for="shopName">Shop Name *</label><input id="shopName" placeholder="Shop name" maxlength="100"></div><div><label for="shopPhone">Phone Number</label><input id="shopPhone" type="tel" placeholder="Phone number"></div><div style="grid-column:1/-1"><label for="shopAddress">Shop Address</label><input id="shopAddress" placeholder="Shop address"></div></div><button class="primary" onclick="addShop()">＋ Add Shop</button><div id="shopMessage"></div><div class="searchField"><span aria-hidden="true">⌕</span><input id="shopSearch" type="search" placeholder="Search shops by name..." oninput="filterShopRows()" autocomplete="off"></div><div class="shopListHead"><span>Shop Name</span><span>Address</span><span>Phone</span><span>Actions</span></div><div id="shopList"></div>
+    <div class="shopForm" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+      <div><label for="shopName">Shop Name *</label><input id="shopName" placeholder="Shop name" maxlength="100"></div>
+      <div><label for="shopPhone">Phone Number</label><input id="shopPhone" type="tel" placeholder="Phone number"></div>
+      <div><label for="shopAddress">Shop Address</label><input id="shopAddress" placeholder="Shop address"></div>
+      <div><label for="shopUrl">Shop URL *</label><input id="shopUrl" type="url" placeholder="https://example.com"></div>
+    </div>
+    <button class="primary" onclick="addShop()">＋ Add Shop</button><div id="shopMessage"></div>
+    <div class="searchField"><span aria-hidden="true">⌕</span><input id="shopSearch" type="search" placeholder="Search shops by name..." oninput="filterShopRows()" autocomplete="off"></div>
+    <div class="shopListHead"><span>Shop Name</span><span>Address</span><span>Phone</span><span>Shop URL</span><span>Actions</span></div><div id="shopList"></div>
     <button class="secondary" onclick="showSection('dashboardMain')">Back to Dashboard</button>
   </div>
 
@@ -443,7 +425,7 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
     <h2 id="editQrHeading">Edit QR Code</h2>
     <label for="editQrTitle">QR Code Name</label><input id="editQrTitle" maxlength="120">
     <label for="editQrUrl">Destination URL</label><input id="editQrUrl" type="url">
-    <label for="editQrShop">Assigned Shop</label><select id="editQrShop"><option value="">No shop</option></select>
+    
     <div class="modalActions"><button class="secondary" onclick="closeEditQR()">Cancel</button><button class="primary" onclick="saveEditQR()">Save Changes</button></div>
   </div>
 </div>
@@ -774,15 +756,7 @@ function editQR(item) {
   editingQrCode = item.code;
   document.getElementById("editQrTitle").value = item.title || item.code;
   document.getElementById("editQrUrl").value = item.destination_url || "";
-  const shopSelect = document.getElementById("editQrShop");
-  shopSelect.innerHTML = '<option value="">No shop</option>';
-  stores.forEach(shop => {
-    const option = document.createElement("option");
-    option.value = shop.id;
-    option.textContent = shop.name;
-    shopSelect.appendChild(option);
-  });
-  shopSelect.value = item.store_id || "";
+  
   document.getElementById("editQrOverlay").classList.add("open");
 }
 function closeEditQR() {
@@ -793,10 +767,10 @@ async function saveEditQR() {
   if (!editingQrCode) return;
   const title = document.getElementById("editQrTitle").value.trim();
   const destination_url = document.getElementById("editQrUrl").value.trim();
-  const store_id = document.getElementById("editQrShop").value || null;
+  
   if (!title || !destination_url) return alert("Enter a QR code name and destination URL.");
   try {
-    await api("/api/qr/" + encodeURIComponent(editingQrCode), "PATCH", { title, destination_url, store_id });
+    await api("/api/qr/" + encodeURIComponent(editingQrCode), "PATCH", { title, destination_url });
     closeEditQR();
     await loadQR();
     if (currentShopDetailId && !document.getElementById("shopDetailPanel").classList.contains("hidden")) openShopDetail(currentShopDetailId);
