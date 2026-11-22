@@ -207,7 +207,7 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 .shopListHead{color:#00e4ed;background:#071827;font-weight:bold}
 #scanVideo{width:100%;max-width:480px;border-radius:10px;background:#000;margin-top:12px}
 #qrModal{background:#000d}.modalContent{border:1px solid #00dce8;box-shadow:0 0 30px #00dce833}
-@media(max-width:700px){body{padding:10px}.panel{padding:14px}.shopRow,.shopListHead{grid-template-columns:1fr;gap:6px}.shopListHead{display:none}.shopRow{align-items:start}h1{font-size:28px}}
+@media(max-width:700px){body{padding:10px}.panel{padding:14px}.shopRow,.shopListHead{grid-template-columns:1fr;gap:6px}.shopListHead{display:none}.shopRow{align-items:start}.shopNameCell:before{content:"Shop Name: ";color:var(--cyan);font-weight:700}.shopAddressCell:before{content:"Address: ";color:var(--cyan);font-weight:700}.shopPhoneCell:before{content:"Phone: ";color:var(--cyan);font-weight:700}.shopActionsCell:before{content:"Actions: ";display:block;color:var(--cyan);font-weight:700;margin-bottom:4px}h1{font-size:28px}}
 
 
 .brandHeader{display:flex;align-items:center;gap:12px;margin-bottom:8px}
@@ -351,7 +351,7 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
         <thead>
           <tr>
             <th>Code</th>
-            <th>Shop</th>
+            <th>Assigned Shop</th>
             <th>Destination</th>
             <th>Status</th>
             <th>Scan Count</th>
@@ -898,14 +898,6 @@ function openShopDetail(storeId) {
 }
 
 function openScanStats() {
-  const byShop = new Map();
-  qrItems.forEach(item => {
-    const shopName = stores.find(shop => String(shop.id) === String(item.store_id))?.name || "No shop";
-    const current = byShop.get(shopName) || { scans: 0, codes: 0 };
-    current.scans += Number(item.scan_count) || 0;
-    current.codes += 1;
-    byShop.set(shopName, current);
-  });
   renderScanStats();
   showSection("scanStatsPanel");
 }
@@ -1024,14 +1016,18 @@ async function loadShops() {
       row.dataset.search = [shop.name, shop.address, shop.phone].join(" ").toLowerCase();
       row.dataset.name = String(shop.name || "").toLowerCase();
       const label = document.createElement("span");
+      label.className = "shopNameCell";
       const shopTitle = document.createElement("strong");
       shopTitle.textContent = shop.name;
       label.appendChild(shopTitle);
       const address = document.createElement("span");
+      address.className = "shopAddressCell";
       address.textContent = shop.address || "—";
       const phone = document.createElement("span");
+      phone.className = "shopPhoneCell";
       phone.textContent = shop.phone || "—";
       const actions = document.createElement("div");
+      actions.className = "shopActionsCell";
       const edit = document.createElement("button");
       edit.className = "secondary";
       edit.textContent = "Edit";
