@@ -1188,7 +1188,7 @@ async function lookupScannedCode() {
     const edit = document.createElement("button");
     edit.className = "primary";
     edit.textContent = "Edit Destination";
-    edit.onclick = () => editQR(item.code, item.destination_url);
+    edit.onclick = () => editQR(item);
     result.append(title, destination, shopLine, edit);
   } catch (e) {
     alert(e.message);
