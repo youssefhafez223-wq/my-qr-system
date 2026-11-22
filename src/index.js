@@ -361,11 +361,14 @@ export default {
           if (update.name !== undefined) qrUpdate.title = update.name;
           if (update.destination_url !== undefined) qrUpdate.destination_url = update.destination_url;
           if (update.is_active !== undefined) qrUpdate.is_active = update.is_active;
-          if (Object.keys(qrUpdate).length) {
-            const sync = await fetch(`${supabaseUrl}/rest/v1/qr_codes?store_id=eq.${encodeURIComponent(id)}`, {
+          const savedShop = Array.isArray(updatedShop) ? updatedShop[0] : null;
+          if (Object.keys(qrUpdate).length && savedShop?.slug) {
+            // Sync only the shop's dedicated QR (code = shop slug).
+            // Legacy QR codes linked to this shop keep their own destinations.
+            const sync = await fetch(`${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(savedShop.slug)}&store_id=eq.${encodeURIComponent(id)}`, {
               method: "PATCH", headers: { ...headers, Prefer: "return=minimal" }, body: JSON.stringify(qrUpdate)
             });
-            if (!sync.ok) return json({ error: "Shop was updated, but its linked QR code could not be synchronized. Please retry Edit." }, 502);
+            if (!sync.ok) return json({ error: "Shop was updated, but its dedicated QR code could not be synchronized. Please retry Edit." }, 502);
           }
           return json(updatedShop);
         } catch (error) {
@@ -384,7 +387,9 @@ export default {
           const shop = shops[0];
           if (!shop) return json({ error: "Shop not found" }, 404);
           if (!shop.destination_url) return json({ error: "Add a Shop URL in Edit before generating its QR code." }, 400);
-          const existingResponse = await fetch(`${supabaseUrl}/rest/v1/qr_codes?store_id=eq.${encodeURIComponent(id)}&select=code&limit=1`, { headers });
+          // Reuse only the dedicated shop QR whose permanent code equals the shop slug.
+          // Do not hijack older QR codes that happen to be linked to the same shop.
+          const existingResponse = await fetch(`${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(shop.slug)}&store_id=eq.${encodeURIComponent(id)}&select=code&limit=1`, { headers });
           if (!existingResponse.ok) return json({ error: "Could not check existing shop QR code" }, 502);
           const existing = await existingResponse.json();
           if (existing.length) {
