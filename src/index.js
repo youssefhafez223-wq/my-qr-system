@@ -85,7 +85,7 @@ export default {
           {
             headers: {
               apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-              Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+              ...(env.SUPABASE_SERVICE_ROLE_KEY.startsWith("sb_secret_") ? {} : { Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` }),
               Accept: "application/json"
             }
           }
@@ -116,7 +116,7 @@ export default {
               method: "POST",
               headers: {
                 apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-                Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+                ...(env.SUPABASE_SERVICE_ROLE_KEY.startsWith("sb_secret_") ? {} : { Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` }),
                 "Content-Type": "application/json",
                 Prefer: "return=minimal"
               },
@@ -285,7 +285,7 @@ export default {
 
       const headers = {
         apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        ...(env.SUPABASE_SERVICE_ROLE_KEY.startsWith("sb_secret_") ? {} : { Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` }),
         "Content-Type": "application/json",
         Accept: "application/json"
       };
