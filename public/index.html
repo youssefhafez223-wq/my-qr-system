@@ -328,6 +328,7 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
       <table class="qrTable">
         <thead>
           <tr>
+            <th>QR Code Name</th>
             <th>Destination</th>
             <th>Status</th>
             <th>Actions</th>
@@ -596,11 +597,10 @@ function chooseNewStore(id) {
 
 async function loadQR() {
   try {
-    const [data, shopData] = await Promise.all([api("/api/qr"), api("/api/stores")]);
+    // Keep core QR management independent from optional shop data.
+    const data = await api("/api/qr");
     const items = Array.isArray(data) ? data : [];
     qrItems = items;
-    stores = Array.isArray(shopData) ? shopData : [];
-    document.getElementById("totalShops").textContent = stores.length;
     document.getElementById("total").textContent = items.length;
     document.getElementById("totalScans").textContent = items.reduce((sum, item) => sum + (Number(item.scan_count) || 0), 0).toLocaleString();
     const list = document.getElementById("qrList");
@@ -608,6 +608,9 @@ async function loadQR() {
     items.forEach(item => {
       const tr = document.createElement("tr");
       tr.dataset.search = [item.title, item.code, item.destination_url].join(" ").toLowerCase();
+      const name = document.createElement("td");
+      name.className = "qrNameCell";
+      name.textContent = item.title || item.code;
       const destination = document.createElement("td");
       destination.className = "destinationCell";
       destination.textContent = item.destination_url;
@@ -632,7 +635,7 @@ async function loadQR() {
       deleteBtn.textContent = "Delete";
       deleteBtn.onclick = () => deleteQR(item.code);
       actions.append(qrBtn, editBtn, toggleBtn, deleteBtn);
-      tr.append(destination, status, actions);
+      tr.append(name, destination, status, actions);
       list.appendChild(tr);
     });
     filterQRRows();
@@ -778,7 +781,9 @@ function openShopDetail(storeId) {
   showSection("shopDetailPanel");
 }
 
-function openScanStats() {
+async function openScanStats() {
+  // Shop names are only needed for the optional breakdown screen.
+  await loadShops();
   renderScanStats();
   showSection("scanStatsPanel");
 }
