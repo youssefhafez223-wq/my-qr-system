@@ -380,7 +380,7 @@ export default {
       if (url.pathname === "/api/qr" && request.method === "GET") {
         try {
           const response = await fetch(
-            `${supabaseUrl}/rest/v1/qr_codes?select=code,destination_url,is_active,store_id&order=code.asc`,
+            `${supabaseUrl}/rest/v1/qr_codes?select=title,code,destination_url,is_active,store_id&order=code.asc`,
             { headers }
           );
 
@@ -469,7 +469,7 @@ export default {
                 Prefer: "return=representation"
               },
               body: JSON.stringify({
-                title: code,
+                title: String(body.title || code).trim() || code,
                 code,
                 destination_url: destination.toString(),
                 is_active: true,
@@ -532,6 +532,12 @@ export default {
           const body = await request.json();
           const update = {};
 
+          if (body.title !== undefined) {
+            const title = String(body.title || "").trim();
+            if (!title || title.length > 120) return json({ error: "QR name is required (up to 120 characters)" }, 400);
+            update.title = title;
+          }
+
           if (body.destination_url !== undefined) {
             let destination;
 
@@ -589,6 +595,31 @@ export default {
         } catch (error) {
           console.error("Update request failed:", error);
           return json({ error: "Invalid data" }, 400);
+        }
+      }
+
+      // Scan counter management.
+      if (url.pathname === "/api/scans/manage" && request.method === "POST") {
+        try {
+          const body = await request.json();
+          const action = String(body.action || "");
+          if (!["reset_counters", "delete_all_history"].includes(action)) {
+            return json({ error: "Invalid scan management action" }, 400);
+          }
+          const response = await fetch(`${supabaseUrl}/rest/v1/rpc/qroma_manage_scans`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ action })
+          });
+          if (!response.ok) {
+            const detail = await response.text();
+            console.error("Scan management failed:", response.status, detail);
+            return json({ error: "Could not update scan records" }, 502);
+          }
+          return json(await response.json());
+        } catch (error) {
+          console.error("Scan management failed:", error);
+          return json({ error: "Could not update scan records" }, 502);
         }
       }
 
