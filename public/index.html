@@ -258,6 +258,12 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 .editQrModal{width:min(520px,100%);background:#081c2d;border:1px solid var(--cyan);border-radius:16px;padding:22px;box-shadow:0 15px 50px #0009}
 .editQrModal label{display:block;margin-top:10px;color:var(--muted)}
 .editQrModal .modalActions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:14px}
+.editShopOverlay{position:fixed;inset:0;z-index:1001;background:#000c;display:none;align-items:center;justify-content:center;padding:18px;overflow-y:auto}
+.editShopOverlay.open{display:flex}
+.editShopModal{width:min(520px,100%);max-height:calc(100vh - 36px);overflow-y:auto;background:#081c2d;border:1px solid var(--cyan);border-radius:16px;padding:22px;box-shadow:0 15px 50px #0009}
+.editShopModal label{display:block;margin-top:10px;color:var(--muted)}
+.editShopModal input{margin:6px 0 8px}
+.editShopModal .modalActions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:14px}
 
 /* QROMA mobile shop list: keep the five columns in one horizontally scrollable row */
 #shopList {
@@ -448,6 +454,24 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
       Close
     </button>
 
+  </div>
+</div>
+
+<div id="editShopOverlay" class="editShopOverlay" role="dialog" aria-modal="true" aria-labelledby="editShopHeading">
+  <div class="editShopModal">
+    <h2 id="editShopHeading">Edit Shop Details</h2>
+    <label for="editShopName">Shop Name</label>
+    <input id="editShopName" maxlength="100" autocomplete="organization">
+    <label for="editShopPhone">Phone Number</label>
+    <input id="editShopPhone" type="tel" autocomplete="tel">
+    <label for="editShopAddress">Address</label>
+    <input id="editShopAddress" autocomplete="street-address">
+    <label for="editShopUrl">Shop URL</label>
+    <input id="editShopUrl" type="url" inputmode="url" autocomplete="url">
+    <div class="modalActions">
+      <button class="secondary" onclick="closeEditShop()">Cancel</button>
+      <button class="primary" id="saveEditShopButton" onclick="saveEditShop()">Save Changes</button>
+    </div>
   </div>
 </div>
 
@@ -992,22 +1016,47 @@ async function addShop() {
   } catch (e) { alert(e.message); }
 }
 
-async function editShop(shop) {
-  const name = prompt("Shop name:", shop.name);
-  if (name === null || !name.trim()) return;
-  const address = prompt("Shop address:", shop.address || "");
-  if (address === null) return;
-  const phone = prompt("Phone number:", shop.phone || "");
-  if (phone === null) return;
-  const destination_url = prompt("Shop URL:", shop.destination_url || "");
-  if (destination_url === null || !destination_url.trim()) return;
+let editingShopId = null;
+
+function editShop(shop) {
+  editingShopId = shop.id;
+  document.getElementById("editShopName").value = shop.name || "";
+  document.getElementById("editShopPhone").value = shop.phone || "";
+  document.getElementById("editShopAddress").value = shop.address || "";
+  document.getElementById("editShopUrl").value = shop.destination_url || "";
+  document.getElementById("editShopOverlay").classList.add("open");
+}
+
+function closeEditShop() {
+  document.getElementById("editShopOverlay").classList.remove("open");
+  editingShopId = null;
+}
+
+async function saveEditShop() {
+  if (!editingShopId) return;
+  const name = document.getElementById("editShopName").value.trim();
+  const phone = document.getElementById("editShopPhone").value.trim();
+  const address = document.getElementById("editShopAddress").value.trim();
+  const destination_url = document.getElementById("editShopUrl").value.trim();
+  if (!name) return alert("Enter a shop name.");
+  if (!destination_url) return alert("Enter a valid Shop URL.");
+  const button = document.getElementById("saveEditShopButton");
+  button.disabled = true;
+  button.textContent = "Saving...";
   try {
-    await api("/api/stores/" + encodeURIComponent(shop.id), "PATCH", {
-      name: name.trim(), address: address.trim(), phone: phone.trim(), destination_url: destination_url.trim()
+    await api("/api/stores/" + encodeURIComponent(editingShopId), "PATCH", {
+      name, phone, address, destination_url
     });
+    closeEditShop();
     await loadShops();
     await loadQR();
-  } catch (e) { alert(e.message); }
+    document.getElementById("shopMessage").textContent = "Shop details updated.";
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Save Changes";
+  }
 }
 
 async function generateShopQR(shop) {
