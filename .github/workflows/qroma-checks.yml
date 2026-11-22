@@ -24,11 +24,11 @@ jobs:
           import re
           from pathlib import Path
           html = Path("public/index.html").read_text()
-          scripts = re.findall(r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>", html, re.I)
+          scripts = re.findall(r"<script(?:\s[^>]*)?>([\s\S]*?)</script>", html, re.I)
           scripts = [script for script in scripts if script.strip()]
           if not scripts:
               raise SystemExit("No inline dashboard script found")
-          Path("/tmp/qroma-dashboard.js").write_text("\\n".join(scripts))
+          Path("/tmp/qroma-dashboard.js").write_text("\n".join(scripts))
           print(f"Extracted {len(scripts)} inline script(s)")
           PY
           node --check /tmp/qroma-dashboard.js
