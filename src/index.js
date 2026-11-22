@@ -701,6 +701,17 @@ export default {
             return json({ error: "Invalid QR code" }, 400);
           }
 
+          // Keep printed links and scan history intact: only delete QR codes with no scans.
+          const scansResponse = await fetch(
+            `${supabaseUrl}/rest/v1/qr_scans?code=eq.${encodeURIComponent(code)}&select=id&limit=1`,
+            { headers }
+          );
+          if (!scansResponse.ok) return json({ error: "Could not verify QR scan history. Please retry." }, 502);
+          const scans = await scansResponse.json();
+          if (scans.length) {
+            return json({ error: "This QR code has scan history. Disable it instead to preserve its permanent link and history." }, 409);
+          }
+
           const response = await fetch(
             `${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}`,
             {
