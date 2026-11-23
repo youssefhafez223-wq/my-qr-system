@@ -433,6 +433,9 @@ button:disabled{opacity:1!important;filter:none!important;cursor:not-allowed!imp
     <p class="subtitle">Select QR codes below or select a whole shop above. Reset Selected Counters clears the displayed scan count but keeps scan records. Delete Selected History permanently removes the selected scan records. QR links remain active.</p>
     <h3>By Manage Shops</h3><div id="shopScanStats"></div>
     <h3 style="margin-top:22px">By QR Code</h3><div id="qrScanStats"></div>
+    <h3 style="margin-top:26px">Scan History</h3>
+    <p class="subtitle">Latest 100 recorded scans, including records kept after resetting counters.</p>
+    <div id="scanHistoryTable"></div>
   </div>
 
   <div id="notesPanel" class="panel hidden">
@@ -921,6 +924,29 @@ async function openScanStats() {
   await Promise.all([loadShops(), loadQR()]);
   renderScanStats();
   showSection("scanStatsPanel");
+  await loadScanHistory();
+}
+
+async function loadScanHistory() {
+  const target = document.getElementById("scanHistoryTable");
+  target.textContent = "Loading scan history...";
+  try {
+    const rows = await api("/api/scans/history?limit=100");
+    target.innerHTML = "";
+    if (!rows.length) {
+      target.textContent = "No scan history recorded yet.";
+      return;
+    }
+    const qrTitles = new Map(qrItems.map(item => [item.code, item.title || item.code]));
+    const tableRows = rows.map(row => [
+      qrTitles.get(row.code) || row.code,
+      row.code,
+      row.scanned_at ? new Date(row.scanned_at).toLocaleString() : "Unknown"
+    ]);
+    target.appendChild(makeDetailTable(["QR Code", "Code", "Scanned At"], tableRows));
+  } catch (error) {
+    target.textContent = error.message || "Could not load scan history.";
+  }
 }
 
 function renderScanStats() {
