@@ -203,7 +203,7 @@ th,td{padding:14px 12px;border-bottom:1px solid #19384d;text-align:left;overflow
 th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 .status{font-weight:700}#message,#shopMessage{margin:12px 0;color:#00e4ed}
 .shopRow,.shopListHead{display:grid;grid-template-columns:minmax(130px,1.1fr) minmax(130px,1fr) minmax(110px,.8fr) minmax(170px,1.3fr) minmax(230px,1.5fr);align-items:center;gap:10px;padding:14px 12px;border-bottom:1px solid #17394f}
-.shopRow span{overflow-wrap:anywhere}#shopList{margin-top:14px;border:1px solid #17445a;border-radius:12px;overflow:hidden}
+.shopRow span{overflow-wrap:anywhere}#shopList{margin-top:0;border:0;border-radius:0;overflow:visible}
 .shopListHead{color:#00e4ed;background:#071827;font-weight:bold}
 #scanVideo{width:100%;max-width:480px;border-radius:10px;background:#000;margin-top:12px}
 #qrModal{background:#000d}.modalContent{border:1px solid #00dce8;box-shadow:0 0 30px #00dce833}
@@ -265,34 +265,16 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 .editShopModal input{margin:6px 0 8px}
 .editShopModal .modalActions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:14px}
 
-/* QROMA mobile shop list: keep the five columns in one horizontally scrollable row */
-#shopList {
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
-}
-.shopRow, .shopListHead {
-  min-width: 1000px;
-  grid-template-columns: minmax(150px,1.1fr) minmax(150px,1fr) minmax(120px,.8fr) minmax(190px,1.3fr) minmax(380px,1.8fr);
-}
-.shopActionsCell {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 6px;
-  min-width: 380px;
-}
-.shopActionsCell button {
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-@media(max-width:700px) {
-  .shopRow, .shopListHead {
-    grid-template-columns: minmax(150px,1.1fr) minmax(150px,1fr) minmax(120px,.8fr) minmax(190px,1.3fr) minmax(380px,1.8fr);
-  }
-  .shopRow { align-items: center; }
-}
+/* QROMA responsive shop table: header and rows scroll together inside the panel */
+#shopTableScroll{width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;border:1px solid #17445a;border-radius:12px;scrollbar-width:thin;scrollbar-color:#28536a transparent}
+#shopTableScroll::-webkit-scrollbar{height:6px}
+#shopTableScroll::-webkit-scrollbar-track{background:transparent}
+#shopTableScroll::-webkit-scrollbar-thumb{background:#28536a;border-radius:8px}
+.shopRow,.shopListHead{width:1120px;min-width:1120px;box-sizing:border-box;grid-template-columns:160px 160px 125px 205px 1fr}
+.shopActionsCell{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;min-width:0}
+.shopActionsCell button{flex:0 0 auto;white-space:nowrap}
+.shopRow.locked-row{background:linear-gradient(rgba(170,180,190,.20),rgba(170,180,190,.20))!important}
+@media(max-width:700px){#shopTableScroll{border-radius:10px}.shopRow,.shopListHead{width:1120px;min-width:1120px;grid-template-columns:160px 160px 125px 205px 1fr}.shopRow{align-items:center}}
 
 
 /* QROMA lock states, Notes, and scan selection */
@@ -417,7 +399,7 @@ button:disabled{opacity:1!important;filter:none!important;cursor:not-allowed!imp
     </div>
     <button class="primary" onclick="addShop()">＋ Add Shop</button><div id="shopMessage"></div>
     <div class="searchField"><span aria-hidden="true">⌕</span><input id="shopSearch" type="search" placeholder="Search shops by name..." oninput="filterShopRows()" autocomplete="off"></div>
-    <div class="shopListHead"><span>Shop Name</span><span>Address</span><span>Phone</span><span>Shop URL</span><span>Actions</span></div><div id="shopList"></div>
+    <div id="shopTableScroll"><div class="shopListHead"><span>Shop Name</span><span>Address</span><span>Phone</span><span>Shop URL</span><span>Actions</span></div><div id="shopList"></div></div>
     <button class="secondary" onclick="showSection('dashboardMain')">Back to Dashboard</button>
   </div>
 
