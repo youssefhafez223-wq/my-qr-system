@@ -294,6 +294,32 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
   .shopRow { align-items: center; }
 }
 
+
+/* QROMA lock states, Notes, and scan selection */
+.locked-row td{background:rgba(170,180,190,.20)!important}
+.lockButton{width:40px;height:40px;min-width:40px;padding:0;margin:0 3px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #3d7188;border-radius:9px;background:#102d43;color:#dffaff;font-size:19px;line-height:1}
+.lockButton:active{transform:scale(.96)}
+button:disabled{opacity:1!important;filter:none!important;cursor:not-allowed!important}
+.noteToolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+.noteCard{border:1px solid #1b526b;border-radius:13px;background:rgba(6,26,43,.8);padding:14px;margin:10px 0}
+.noteCard p{white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0}
+.noteMeta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;color:var(--muted);font-size:12px}
+.noteStatus{width:auto;min-width:145px;margin:4px 0;padding:8px 10px;font-weight:700}
+.noteStatusDone{border-color:#1d9b72;color:#7df0c4}
+.noteStatusPending{border-color:#c28a2c;color:#ffd27a}
+.noteStatusRejected{border-color:#b84b58;color:#ff9aa5}
+.noteTargetList{max-height:260px;overflow-y:auto;border:1px solid #31516a;border-radius:10px;background:#071827;margin:8px 0 14px}
+.noteTargetGroup{padding:9px 11px;color:var(--cyan);font-weight:700;background:#0b263a}
+.noteTargetOption{display:block;width:100%;text-align:left;margin:0;padding:11px 12px;border:0;border-bottom:1px solid #17394f;border-radius:0;background:transparent;color:#f4f9ff}
+.noteTargetOption.selected{background:#12445b}
+.noteTargetOption small{display:block;color:var(--muted);font-weight:400;margin-top:3px}
+.noteModal{width:min(560px,100%);max-height:calc(100vh - 36px);overflow:auto;background:#081c2d;border:1px solid var(--cyan);border-radius:16px;padding:22px;box-shadow:0 15px 50px #0009}
+.noteModal label{display:block;margin-top:10px;color:var(--muted)}
+.noteModal textarea{width:100%;min-height:115px;resize:vertical;padding:12px;margin:8px 0 14px;background:#041321;color:#fff;border:1px solid #31516a;border-radius:10px;font:inherit}
+.noteModal .modalActions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.scanSelectCell{width:46px;min-width:46px;text-align:center!important}
+.scanSelectCell input{width:18px;height:18px;margin:0;accent-color:#00dce8}
+@media(max-width:650px){.lockButton{width:42px;height:42px;min-width:42px;font-size:20px}.noteModal{padding:16px}}
 </style>
 </head>
 
@@ -338,6 +364,7 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
       <button onclick="openShops()">Manage Shops</button>
       <button onclick="openScanner()">Scan QR</button>
       <button onclick="openScanStats()">Total Scans</button>
+      <button onclick="openNotes()">Notes</button>
     </div>
   </div>
 
@@ -409,12 +436,26 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
     <div class="searchField"><span aria-hidden="true">⌕</span><input id="scanShopSearch" type="search" placeholder="Search by shop name..." oninput="renderScanStats()" autocomplete="off"></div>
     <div id="scanSearchResults"></div>
     <div id="scanManagement" class="scanManagement">
-      <button class="secondary" onclick="resetScanCounters()">Reset Counters · Keep History</button>
+      <label style="display:flex;align-items:center;gap:8px;margin-right:8px"><input id="selectAllScanCodes" type="checkbox" style="width:18px;height:18px;margin:0" onchange="toggleSelectAllScanCodes(this.checked)"> Select All</label>
+      <strong id="selectedScanCount">0 selected</strong>
+      <button class="secondary" onclick="resetSelectedScanCounters()">Reset Selected Counters</button>
+      <button class="danger" onclick="deleteSelectedScanHistory()">Delete Selected History</button>
+      <button class="secondary" onclick="resetScanCounters()">Reset All Counters · Keep History</button>
       <button class="danger" onclick="deleteAllScanHistory()">Delete All Scan History</button>
     </div>
-    <p class="subtitle">Reset Counters starts new totals while preserving old scan records. Delete All Scan History permanently removes scan records only; QR codes and destinations stay intact.</p>
+    <p class="subtitle">Select individual QR codes or Select All. Reset Counter keeps old history; Delete History permanently removes scan records for selected codes. QR links remain active.</p>
     <h3>By Shop</h3><div id="shopScanStats"></div>
     <h3 style="margin-top:22px">By QR Code</h3><div id="qrScanStats"></div>
+  </div>
+
+  <div id="notesPanel" class="panel hidden">
+    <button class="secondary" onclick="showSection('dashboardMain')">← Back to Dashboard</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px">
+      <div><h2>Notes</h2><p class="subtitle" style="margin:5px 0 0">Keep follow-ups and ideas linked to a shop or QR code.</p></div>
+      <button class="primary" onclick="openAddNote()">＋ Add Note</button>
+    </div>
+    <div class="searchField"><span aria-hidden="true">⌕</span><input id="notesSearch" type="search" placeholder="Search notes, shops, or QR codes..." oninput="renderNotes()" autocomplete="off"></div>
+    <div id="notesList"></div>
   </div>
 
   <div id="scannerPanel" class="panel hidden">
@@ -485,6 +526,22 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
   </div>
 </div>
 
+<div id="noteOverlay" class="editQrOverlay" role="dialog" aria-modal="true" aria-labelledby="noteHeading">
+  <div class="noteModal">
+    <h2 id="noteHeading">Add Note</h2>
+    <label for="noteTargetSearch">Search and choose a shop or QR code</label>
+    <input id="noteTargetSearch" type="search" placeholder="Type a shop or QR code name..." oninput="renderNoteTargetOptions()">
+    <div id="noteTargetList" class="noteTargetList"></div>
+    <div id="noteSelectedTarget" class="subtitle">No shop or QR code selected</div>
+    <label for="noteText">Your note</label>
+    <textarea id="noteText" maxlength="4000" placeholder="Write the follow-up, idea, or details..."></textarea>
+    <div class="modalActions">
+      <button class="secondary" onclick="closeAddNote()">Cancel</button>
+      <button class="primary" onclick="saveNote()">Save Note</button>
+    </div>
+  </div>
+</div>
+
 <script>
 
 let token = "";
@@ -495,6 +552,9 @@ let currentShopDetailId = null;
 let editingQrCode = null;
 let scanStream = null;
 let scanTimer = null;
+let notes = [];
+let noteTarget = null;
+let selectedScanCodes = new Set();
 
 async function api(path, method = "GET", body = null) {
 
@@ -651,9 +711,9 @@ function chooseNewStore(id) {
 
 async function loadQR() {
   try {
-    // Keep core QR management independent from optional shop data.
     const data = await api("/api/qr");
     const items = Array.isArray(data) ? data : [];
+    items.sort((a, b) => Number(!!a.is_locked) - Number(!!b.is_locked));
     qrItems = items;
     document.getElementById("total").textContent = items.length;
     document.getElementById("totalScans").textContent = items.reduce((sum, item) => sum + (Number(item.scan_count) || 0), 0).toLocaleString();
@@ -662,9 +722,10 @@ async function loadQR() {
     items.forEach(item => {
       const tr = document.createElement("tr");
       tr.dataset.search = [item.title, item.code, item.destination_url].join(" ").toLowerCase();
+      if (item.is_locked) tr.classList.add("locked-row");
       const name = document.createElement("td");
       name.className = "qrNameCell";
-      name.textContent = item.title || item.code;
+      name.textContent = (item.is_locked ? "🔒 " : "") + (item.title || item.code);
       const destination = document.createElement("td");
       destination.className = "destinationCell";
       destination.textContent = item.destination_url;
@@ -679,16 +740,29 @@ async function loadQR() {
       const editBtn = document.createElement("button");
       editBtn.className = "secondary";
       editBtn.textContent = "Edit";
+      editBtn.disabled = !!item.is_locked;
+      editBtn.title = item.is_locked ? "Unlock this QR code to edit it" : "Edit QR code";
       editBtn.onclick = () => editQR(item);
       const toggleBtn = document.createElement("button");
       toggleBtn.className = "success";
       toggleBtn.textContent = item.is_active ? "Disable" : "Enable";
+      toggleBtn.disabled = !!item.is_locked;
+      toggleBtn.title = item.is_locked ? "Unlock this QR code to change its status" : "Change QR status";
       toggleBtn.onclick = () => toggleQR(item.code, item.is_active);
       const deleteBtn = document.createElement("button");
       deleteBtn.className = "danger";
       deleteBtn.textContent = "Delete";
+      deleteBtn.disabled = !!item.is_locked;
+      deleteBtn.title = item.is_locked ? "Unlock this QR code to delete it" : "Delete QR code and its scan history";
       deleteBtn.onclick = () => deleteQR(item.code);
-      actions.append(qrBtn, editBtn, toggleBtn, deleteBtn);
+      const lockBtn = document.createElement("button");
+      lockBtn.type = "button";
+      lockBtn.className = "lockButton";
+      lockBtn.textContent = item.is_locked ? "🔓" : "🔒";
+      lockBtn.title = item.is_locked ? "Unlock QR code" : "Lock QR code";
+      lockBtn.setAttribute("aria-label", lockBtn.title);
+      lockBtn.onclick = () => setQrLock(item.code, !!item.is_locked);
+      actions.append(qrBtn, editBtn, toggleBtn, deleteBtn, lockBtn);
       tr.append(name, destination, status, actions);
       list.appendChild(tr);
     });
@@ -712,6 +786,7 @@ async function addQR() {
 }
 
 function editQR(item) {
+  if (item.is_locked) return alert("This QR code is locked. Unlock it before editing.");
   editingQrCode = item.code;
   document.getElementById("editQrTitle").value = item.title || item.code;
   document.getElementById("editQrUrl").value = item.destination_url || "";
@@ -737,7 +812,8 @@ async function saveEditQR() {
 }
 
 async function toggleQR(code, isActive) {
-
+  const item = qrItems.find(row => row.code === code);
+  if (item?.is_locked) return alert("This QR code is locked. Unlock it before changing its status.");
   try {
 
     await api(
@@ -755,9 +831,23 @@ async function toggleQR(code, isActive) {
   }
 }
 
+async function setQrLock(code, isLocked) {
+  try {
+    await api("/api/qr/" + encodeURIComponent(code) + "/lock", "POST", { is_locked: !isLocked });
+    await loadQR();
+  } catch (e) { alert(e.message); }
+}
+
+async function setShopLock(id, isLocked) {
+  try {
+    await api("/api/stores/" + encodeURIComponent(id) + "/lock", "POST", { is_locked: !isLocked });
+    await loadShops();
+  } catch (e) { alert(e.message); }
+}
+
 async function deleteQR(code) {
 
-  if (!confirm("Permanently delete this QR code?")) return;
+  if (!confirm("Permanently delete this QR code AND all of its scan history? This cannot be undone.")) return;
 
   try {
 
@@ -836,8 +926,7 @@ function openShopDetail(storeId) {
 }
 
 async function openScanStats() {
-  // Shop names are only needed for the optional breakdown screen.
-  await loadShops();
+  await Promise.all([loadShops(), loadQR()]);
   renderScanStats();
   showSection("scanStatsPanel");
 }
@@ -878,27 +967,87 @@ function renderScanStats() {
   if (shopRows.length) shopTarget.appendChild(makeDetailTable(["Shop", "QR Codes", "Total Scans"], shopRows));
   else shopTarget.textContent = "No scan statistics yet.";
 
-  const qrRows = [...qrItems].filter(item => {
+  const visibleQrItems = [...qrItems].filter(item => {
       const shopName = stores.find(shop => String(shop.id) === String(item.store_id))?.name || "No shop";
-      return !query || shopName.toLowerCase().includes(query);
-    }).sort((a,b) => (Number(b.scan_count)||0) - (Number(a.scan_count)||0))
-    .map(item => {
+      return !query || shopName.toLowerCase().includes(query) || String(item.title || "").toLowerCase().includes(query) || String(item.code || "").toLowerCase().includes(query);
+    }).sort((a,b) => (Number(b.scan_count)||0) - (Number(a.scan_count)||0));
+  const qrRows = visibleQrItems.map(item => {
       const shopName = stores.find(shop => String(shop.id) === String(item.store_id))?.name || "No shop";
-      return [item.title || item.code, shopName, Number(item.scan_count)||0, item.last_scanned_at ? new Date(item.last_scanned_at).toLocaleString() : "Never"];
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.dataset.code = item.code;
+      checkbox.checked = selectedScanCodes.has(item.code);
+      checkbox.onchange = () => {
+        if (checkbox.checked) selectedScanCodes.add(item.code);
+        else selectedScanCodes.delete(item.code);
+        updateScanSelectionUI();
+      };
+      const selectCell = document.createElement("span");
+      selectCell.className = "scanSelectCell";
+      selectCell.appendChild(checkbox);
+      return [selectCell, item.title || item.code, shopName, Number(item.scan_count)||0, item.last_scanned_at ? new Date(item.last_scanned_at).toLocaleString() : "Never"];
     });
   const qrTarget = document.getElementById("qrScanStats");
   qrTarget.innerHTML = "";
-  if (qrRows.length) qrTarget.appendChild(makeDetailTable(["QR Code", "Shop", "Scans", "Last Scanned"], qrRows));
+  if (qrRows.length) qrTarget.appendChild(makeDetailTable(["Select", "QR Code", "Shop", "Scans", "Last Scanned"], qrRows));
   else qrTarget.textContent = "No QR codes found.";
+  updateScanSelectionUI();
+}
+
+function updateScanSelectionUI() {
+  const count = document.getElementById("selectedScanCount");
+  if (count) count.textContent = selectedScanCodes.size + " selected";
+  const selectAll = document.getElementById("selectAllScanCodes");
+  const visible = [...document.querySelectorAll("#qrScanStats input[data-code]")];
+  if (selectAll) {
+    selectAll.checked = visible.length > 0 && visible.every(input => selectedScanCodes.has(input.dataset.code));
+    selectAll.indeterminate = visible.some(input => selectedScanCodes.has(input.dataset.code)) && !selectAll.checked;
+  }
+}
+
+function toggleSelectAllScanCodes(checked) {
+  document.querySelectorAll("#qrScanStats input[data-code]").forEach(input => {
+    if (checked) selectedScanCodes.add(input.dataset.code);
+    else selectedScanCodes.delete(input.dataset.code);
+  });
+  renderScanStats();
+}
+
+async function resetSelectedScanCounters() {
+  const codes = [...selectedScanCodes];
+  if (!codes.length) return alert("Select at least one QR code first.");
+  if (!confirm("Reset counters for " + codes.length + " selected QR code(s)? Their old scan history will be kept.")) return;
+  try {
+    await api("/api/scans/manage", "POST", { action: "reset_counters", codes });
+    selectedScanCodes.clear();
+    await loadQR();
+    await openScanStats();
+    alert("Selected counters reset. Previous scan history was preserved.");
+  } catch (e) { alert(e.message); }
+}
+
+async function deleteSelectedScanHistory() {
+  const codes = [...selectedScanCodes];
+  if (!codes.length) return alert("Select at least one QR code first.");
+  if (!confirm("Permanently delete scan history for " + codes.length + " selected QR code(s)? The QR codes and their links will remain.")) return;
+  if (!confirm("Final confirmation: permanently delete the selected scan records?")) return;
+  try {
+    await api("/api/scans/manage", "POST", { action: "delete_history", codes });
+    selectedScanCodes.clear();
+    await loadQR();
+    await openScanStats();
+    alert("Selected scan history was deleted. QR codes were not changed.");
+  } catch (e) { alert(e.message); }
 }
 
 async function resetScanCounters() {
   if (!confirm("Reset all current scan counters? Old scan history will be kept.")) return;
   try {
     await api("/api/scans/manage", "POST", { action: "reset_counters" });
+    selectedScanCodes.clear();
     await loadQR();
-    openScanStats();
-    alert("Counters reset. Previous scan history was preserved.");
+    await openScanStats();
+    alert("All counters reset. Previous scan history was preserved.");
   } catch (e) { alert(e.message); }
 }
 
@@ -907,14 +1056,170 @@ async function deleteAllScanHistory() {
   if (!confirm("Final confirmation: delete every old scan record now?")) return;
   try {
     await api("/api/scans/manage", "POST", { action: "delete_all_history" });
+    selectedScanCodes.clear();
     await loadQR();
-    openScanStats();
+    await openScanStats();
     alert("All scan history was deleted. QR codes were not changed.");
   } catch (e) { alert(e.message); }
 }
 
+async function openNotes() {
+  try {
+    await Promise.all([loadShops(), loadQR()]);
+    await loadNotes();
+    document.getElementById("notesSearch").value = "";
+    renderNotes();
+    showSection("notesPanel");
+  } catch (e) { alert(e.message); }
+}
+
+async function loadNotes() {
+  notes = await api("/api/notes");
+}
+
+function noteTargetLabel(note) {
+  const qr = note.code ? qrItems.find(item => item.code === note.code) : null;
+  const shop = note.store_id ? stores.find(item => String(item.id) === String(note.store_id)) : null;
+  if (qr && shop) return shop.name + " · " + (qr.title || qr.code);
+  if (qr) return qr.title || qr.code;
+  if (shop) return shop.name;
+  return "Unlinked item";
+}
+
+function renderNotes() {
+  const list = document.getElementById("notesList");
+  if (!list) return;
+  const query = (document.getElementById("notesSearch")?.value || "").trim().toLowerCase();
+  list.innerHTML = "";
+  const matched = notes.filter(item => {
+    const label = noteTargetLabel(item);
+    return !query || [label, item.note, item.status].join(" ").toLowerCase().includes(query);
+  });
+  if (!matched.length) {
+    list.textContent = notes.length ? "No matching notes." : "No notes yet. Use Add Note to create your first one.";
+    return;
+  }
+  matched.forEach(item => {
+    const card = document.createElement("div");
+    card.className = "noteCard";
+    const meta = document.createElement("div");
+    meta.className = "noteMeta";
+    const target = document.createElement("strong");
+    target.textContent = noteTargetLabel(item);
+    const date = document.createElement("span");
+    date.textContent = new Date(item.created_at).toLocaleString();
+    meta.append(target, date);
+    const body = document.createElement("p");
+    body.textContent = item.note;
+    const controls = document.createElement("div");
+    controls.className = "noteToolbar";
+    const status = document.createElement("select");
+    status.className = "noteStatus " + (item.status === "done" ? "noteStatusDone" : item.status === "rejected" ? "noteStatusRejected" : "noteStatusPending");
+    status.setAttribute("aria-label", "Note status");
+    [["pending","Pending · قيد المتابعة"],["done","Done · تم"],["rejected","Rejected · مرفوض"]].forEach(([value,label]) => {
+      const option = document.createElement("option");
+      option.value = value; option.textContent = label; option.selected = item.status === value;
+      status.appendChild(option);
+    });
+    status.onchange = () => updateNote(item.id, { status: status.value });
+    const remove = document.createElement("button");
+    remove.className = "danger";
+    remove.textContent = "Delete Note";
+    remove.onclick = () => deleteNote(item);
+    controls.append(status, remove);
+    card.append(meta, body, controls);
+    list.appendChild(card);
+  });
+}
+
+function openAddNote() {
+  noteTarget = null;
+  document.getElementById("noteTargetSearch").value = "";
+  document.getElementById("noteText").value = "";
+  document.getElementById("noteSelectedTarget").textContent = "No shop or QR code selected";
+  renderNoteTargetOptions();
+  document.getElementById("noteOverlay").classList.add("open");
+}
+
+function closeAddNote() {
+  document.getElementById("noteOverlay").classList.remove("open");
+  noteTarget = null;
+}
+
+function renderNoteTargetOptions() {
+  const list = document.getElementById("noteTargetList");
+  const query = (document.getElementById("noteTargetSearch").value || "").trim().toLowerCase();
+  list.innerHTML = "";
+  const qrMatches = qrItems.filter(item => [item.title, item.code, item.destination_url].join(" ").toLowerCase().includes(query));
+  const shopMatches = stores.filter(item => [item.name, item.phone, item.address].join(" ").toLowerCase().includes(query));
+  const addGroup = (label, items, type) => {
+    if (!items.length) return;
+    const heading = document.createElement("div");
+    heading.className = "noteTargetGroup";
+    heading.textContent = label;
+    list.appendChild(heading);
+    items.forEach(item => {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.className = "noteTargetOption";
+      const title = type === "qr" ? (item.title || item.code) : item.name;
+      const sub = type === "qr" ? (item.code + (item.is_locked ? " · Locked" : "")) : ((item.phone || "No phone") + (item.is_locked ? " · Locked" : ""));
+      option.textContent = title;
+      const small = document.createElement("small");
+      small.textContent = sub;
+      option.appendChild(small);
+      option.onclick = () => {
+        noteTarget = type === "qr"
+          ? { type: "qr", code: item.code, store_id: item.store_id || null, label: title }
+          : { type: "shop", store_id: item.id, code: null, label: item.name };
+        document.getElementById("noteSelectedTarget").textContent = "Selected: " + (type === "qr" && item.store_id ? (stores.find(s => String(s.id) === String(item.store_id))?.name + " · ") : "") + title;
+        list.querySelectorAll(".noteTargetOption").forEach(button => button.classList.remove("selected"));
+        option.classList.add("selected");
+      };
+      list.appendChild(option);
+    });
+  };
+  addGroup("QR CODES", qrMatches, "qr");
+  addGroup("MANAGE SHOPS", shopMatches, "shop");
+  if (!qrMatches.length && !shopMatches.length) {
+    const empty = document.createElement("div");
+    empty.className = "shopPickerEmpty";
+    empty.textContent = "No matching shop or QR code found.";
+    list.appendChild(empty);
+  }
+}
+
+async function saveNote() {
+  const note = document.getElementById("noteText").value.trim();
+  if (!noteTarget) return alert("Choose a shop or QR code first.");
+  if (!note) return alert("Write your note first.");
+  try {
+    await api("/api/notes", "POST", { store_id: noteTarget.store_id, code: noteTarget.code, note, status: "pending" });
+    closeAddNote();
+    await loadNotes();
+    renderNotes();
+  } catch (e) { alert(e.message); }
+}
+
+async function updateNote(id, update) {
+  try {
+    await api("/api/notes/" + encodeURIComponent(id), "PATCH", update);
+    await loadNotes();
+    renderNotes();
+  } catch (e) { alert(e.message); await loadNotes(); renderNotes(); }
+}
+
+async function deleteNote(item) {
+  if (!confirm("Permanently delete this note?")) return;
+  try {
+    await api("/api/notes/" + encodeURIComponent(item.id), "DELETE");
+    await loadNotes();
+    renderNotes();
+  } catch (e) { alert(e.message); }
+}
+
 function showSection(section) {
-  ["dashboardMain", "shopsPanel", "scannerPanel", "shopDetailPanel", "scanStatsPanel"].forEach(id => {
+  ["dashboardMain", "shopsPanel", "scannerPanel", "shopDetailPanel", "scanStatsPanel", "notesPanel"].forEach(id => {
     document.getElementById(id).classList.toggle("hidden", id !== section);
   });
   if (section !== "scannerPanel") stopScanner();
@@ -952,14 +1257,16 @@ async function loadShops() {
     const list = document.getElementById("shopList");
     list.innerHTML = "";
     if (!stores.length) { list.textContent = "No shops added yet."; return; }
+    stores.sort((a, b) => Number(!!a.is_locked) - Number(!!b.is_locked));
     stores.forEach(shop => {
       const row = document.createElement("div");
       row.className = "shopRow";
+      if (shop.is_locked) row.classList.add("locked-row");
       row.dataset.search = [shop.name, shop.address, shop.phone, shop.destination_url].join(" ").toLowerCase();
       row.dataset.name = String(shop.name || "").toLowerCase();
       const name = document.createElement("span");
       name.className = "shopNameCell";
-      name.textContent = shop.name;
+      name.textContent = (shop.is_locked ? "🔒 " : "") + shop.name;
       const address = document.createElement("span");
       address.className = "shopAddressCell";
       address.textContent = shop.address || "—";
@@ -978,16 +1285,29 @@ async function loadShops() {
       const edit = document.createElement("button");
       edit.className = "secondary";
       edit.textContent = "Edit";
+      edit.disabled = !!shop.is_locked;
+      edit.title = shop.is_locked ? "Unlock this shop to edit it" : "Edit shop";
       edit.onclick = () => editShop(shop);
       const remove = document.createElement("button");
       remove.className = "danger";
       remove.textContent = "Remove";
+      remove.disabled = !!shop.is_locked;
+      remove.title = shop.is_locked ? "Unlock this shop to remove it" : "Remove shop";
       remove.onclick = () => removeShop(shop);
       const toggle = document.createElement("button");
       toggle.className = shop.is_active ? "success" : "secondary";
       toggle.textContent = shop.is_active ? "Disable" : "Enable";
+      toggle.disabled = !!shop.is_locked;
+      toggle.title = shop.is_locked ? "Unlock this shop to change its status" : "Change shop status";
       toggle.onclick = () => toggleShop(shop);
-      actions.append(generate, edit, remove, toggle);
+      const lock = document.createElement("button");
+      lock.type = "button";
+      lock.className = "lockButton";
+      lock.textContent = shop.is_locked ? "🔓" : "🔒";
+      lock.title = shop.is_locked ? "Unlock shop" : "Lock shop";
+      lock.setAttribute("aria-label", lock.title);
+      lock.onclick = () => setShopLock(shop.id, !!shop.is_locked);
+      actions.append(generate, edit, remove, toggle, lock);
       row.append(name, address, phone, url, actions);
       list.appendChild(row);
     });
@@ -1019,6 +1339,7 @@ async function addShop() {
 let editingShopId = null;
 
 function editShop(shop) {
+  if (shop.is_locked) return alert("This shop is locked. Unlock it before editing.");
   editingShopId = shop.id;
   document.getElementById("editShopName").value = shop.name || "";
   document.getElementById("editShopPhone").value = shop.phone || "";
@@ -1070,6 +1391,7 @@ async function generateShopQR(shop) {
 }
 
 async function toggleShop(shop) {
+  if (shop.is_locked) return alert("This shop is locked. Unlock it before changing its status.");
   const action = shop.is_active ? "disable" : "enable";
   if (!confirm((shop.is_active ? "Disable " : "Enable ") + shop.name + "?")) return;
   try {
@@ -1080,7 +1402,8 @@ async function toggleShop(shop) {
 }
 
 async function removeShop(shop) {
-  if (!confirm("Remove this shop? Its QR code and scan history will be kept, but the shop link will be removed.")) return;
+  if (shop.is_locked) return alert("This shop is locked. Unlock it before removing it.");
+  if (!confirm("Remove this shop? Its QR codes and scan history will be kept, but the shop links will be removed.")) return;
   try {
     await api("/api/stores/" + encodeURIComponent(shop.id), "DELETE");
     await loadShops();
@@ -1161,7 +1484,8 @@ async function lookupScannedCode() {
     shopLine.textContent = "Shop: " + (shop ? shop.name : "Not assigned");
     const edit = document.createElement("button");
     edit.className = "primary";
-    edit.textContent = "Edit Destination";
+    edit.textContent = item.is_locked ? "QR is Locked" : "Edit Destination";
+    edit.disabled = !!item.is_locked;
     edit.onclick = () => editQR(item);
     result.append(title, destination, shopLine, edit);
   } catch (e) {
