@@ -427,7 +427,7 @@ export default {
             const existingQrCheck = await fetch(`${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}&select=is_locked&limit=1`, { headers });
             if (!existingQrCheck.ok) return json({ error: "Could not verify the existing QR code" }, 502);
             const existingQrRows = await existingQrCheck.json();
-            if (!existingQrRows[0]?.is_locked) {
+            if (!shop.is_locked && !existingQrRows[0]?.is_locked) {
               const sync = await fetch(`${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}`, {
                 method: "PATCH", headers: { ...headers, Prefer: "return=minimal" },
                 body: JSON.stringify({ title: shop.name, destination_url: shop.destination_url, is_active: shop.is_active })
