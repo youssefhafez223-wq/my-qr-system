@@ -609,7 +609,8 @@ async function login() {
 
     document.getElementById("dashboard").classList.remove("hidden");
 
-    await loadQR();
+    await Promise.all([loadShops(), loadQR()]);
+    filterQRRows();
 
   } catch (e) {
 
@@ -630,7 +631,10 @@ function logout() {
 function filterQRRows() {
   const query = (document.getElementById("qrSearch")?.value || "").trim().toLowerCase();
   document.querySelectorAll("#qrList tr").forEach(row => {
-    row.hidden = query && !row.dataset.search.includes(query);
+    const item = qrItems.find(qr => qr.code === row.dataset.code);
+    const shopName = item ? (stores.find(shop => String(shop.id) === String(item.store_id))?.name || "") : "";
+    row.dataset.search = [item?.title, item?.code, item?.destination_url, shopName].join(" ").toLowerCase();
+    row.hidden = Boolean(query && !row.dataset.search.includes(query));
   });
 }
 
@@ -721,6 +725,7 @@ async function loadQR() {
     list.innerHTML = "";
     items.forEach(item => {
       const tr = document.createElement("tr");
+      tr.dataset.code = item.code;
       tr.dataset.search = [item.title, item.code, item.destination_url].join(" ").toLowerCase();
       if (item.is_locked) tr.classList.add("locked-row");
       const name = document.createElement("td");
@@ -1311,7 +1316,9 @@ async function loadShops() {
       row.append(name, address, phone, url, actions);
       list.appendChild(row);
     });
+    document.getElementById("totalShops").textContent = stores.length;
     filterShopRows();
+    filterQRRows();
   } catch (e) {
     document.getElementById("shopMessage").textContent = e.message;
   }
