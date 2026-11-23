@@ -306,8 +306,7 @@ button:disabled{opacity:1!important;filter:none!important;cursor:not-allowed!imp
 .noteModal .modalActions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 .scanSelectCell{width:46px;min-width:46px;text-align:center!important}
 .scanSelectCell input{width:18px;height:18px;margin:0;accent-color:#079fe9}
-.lockedQrMark{display:inline-flex;vertical-align:middle;margin-right:7px;color:#079fe9}
-.lockedQrMark svg{width:17px;height:17px;display:block}
+
 @media(max-width:650px){.lockButton{width:42px;height:42px;min-width:42px;font-size:20px}.noteModal{padding:16px}}
 </style>
 </head>
@@ -340,7 +339,7 @@ button:disabled{opacity:1!important;filter:none!important;cursor:not-allowed!imp
 <div id="dashboard" class="hidden">
 
   <div class="statsGrid">
-    <div class="statCard"><div class="statIcon blue">▦</div><div><strong id="total">0</strong><span>Total QR Codes</span></div></div>
+    <div class="statCard"><div class="statIcon gold">▦</div><div><strong id="total">0</strong><span>Total QR Codes</span></div></div>
     <div class="statCard"><div class="statIcon teal">▣</div><div><strong id="totalShops">0</strong><span>Total Shops</span></div></div>
     <div class="statCard"><div class="statIcon blue">⌁</div><div><strong id="totalScans">0</strong><span>Total Scans</span></div></div>
   </div>
@@ -718,14 +717,7 @@ async function loadQR() {
       if (item.is_locked) tr.classList.add("locked-row");
       const name = document.createElement("td");
       name.className = "qrNameCell";
-      if (item.is_locked) {
-        const lockMark = document.createElement("span");
-        lockMark.className = "lockedQrMark";
-        lockMark.setAttribute("aria-label", "Locked");
-        lockMark.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-        name.appendChild(lockMark);
-      }
-      name.appendChild(document.createTextNode(item.title || item.code));
+      name.textContent = (item.is_locked ? "🔒 " : "") + (item.title || item.code);
       const destination = document.createElement("td");
       destination.className = "destinationCell";
       destination.textContent = item.destination_url;
