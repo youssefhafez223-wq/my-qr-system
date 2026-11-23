@@ -13,7 +13,6 @@ create table if not exists public.qroma_notes (
   status text not null default 'pending' check (status in ('done', 'pending', 'rejected')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint qroma_notes_target_check check (store_id is not null or code is not null)
 );
 
 create index if not exists qroma_notes_store_id_idx on public.qroma_notes(store_id);
@@ -69,6 +68,25 @@ $$;
 revoke all on function public.qroma_manage_scans(text, text[]) from public, anon, authenticated;
 grant execute on function public.qroma_manage_scans(text, text[]) to service_role;
 
+create or replace function public.qroma_delete_scan_baseline(target_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  affected integer := 0;
+begin
+  delete from private.qr_scan_baselines where code = target_code;
+  get diagnostics affected = row_count;
+  return jsonb_build_object('success', true, 'deleted_baselines', affected);
+end;
+$$;
+
+revoke all on function public.qroma_delete_scan_baseline(text) from public, anon, authenticated;
+grant execute on function public.qroma_delete_scan_baseline(text) to service_role;
+
+-- Remove the baseline row when an unlocked QR code is permanently deleted.
 create or replace function public.qroma_delete_scan_baseline(target_code text)
 returns jsonb
 language plpgsql
