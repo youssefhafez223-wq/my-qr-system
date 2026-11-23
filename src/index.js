@@ -294,7 +294,7 @@ export default {
       // Shop management
       if (url.pathname === "/api/stores" && request.method === "GET") {
         try {
-          const response = await fetch(`${supabaseUrl}/rest/v1/stores?select=id,name,slug,address,phone,destination_url,is_active,created_at&order=name.asc`, { headers });
+          const response = await fetch(`${supabaseUrl}/rest/v1/stores?select=id,name,slug,address,phone,destination_url,is_active,is_locked,created_at&order=name.asc`, { headers });
           if (!response.ok) return json({ error: "Could not load shops" }, 502);
           return json(await response.json());
         } catch (error) {
@@ -329,11 +329,41 @@ export default {
         }
       }
 
+      if (url.pathname.startsWith("/api/stores/") && url.pathname.endsWith("/lock") && request.method === "POST") {
+        try {
+          const id = decodeURIComponent(url.pathname.slice("/api/stores/".length, -"/lock".length));
+          if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Invalid shop ID" }, 400);
+          const body = await request.json();
+          if (typeof body.is_locked !== "boolean") return json({ error: "Invalid lock state" }, 400);
+          const response = await fetch(`${supabaseUrl}/rest/v1/stores?id=eq.${encodeURIComponent(id)}`, {
+            method: "PATCH", headers: { ...headers, Prefer: "return=representation" },
+            body: JSON.stringify({ is_locked: body.is_locked })
+          });
+          if (!response.ok) return json({ error: "Could not update shop lock" }, 502);
+          return json(await response.json());
+        } catch (error) {
+          console.error("Shop lock update failed:", error);
+          return json({ error: "Could not update shop lock" }, 400);
+        }
+      }
+
       if (url.pathname.startsWith("/api/stores/") && request.method === "PATCH") {
         try {
           const id = decodeURIComponent(url.pathname.slice("/api/stores/".length));
           if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Invalid shop ID" }, 400);
+          const currentResponse = await fetch(`${supabaseUrl}/rest/v1/stores?id=eq.${encodeURIComponent(id)}&select=id,is_locked,slug&limit=1`, { headers });
+          if (!currentResponse.ok) return json({ error: "Could not verify shop lock" }, 502);
+          const currentRows = await currentResponse.json();
+          const currentShop = currentRows[0];
+          if (!currentShop) return json({ error: "Shop not found" }, 404);
+          if (currentShop.is_locked) return json({ error: "This shop is locked. Unlock it before editing." }, 423);
           const body = await request.json();
+          if (body.name !== undefined || body.destination_url !== undefined || body.is_active !== undefined) {
+            const linkedQrResponse = await fetch(`${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(currentShop.slug)}&store_id=eq.${encodeURIComponent(id)}&select=code,is_locked&limit=1`, { headers });
+            if (!linkedQrResponse.ok) return json({ error: "Could not verify the shop QR lock" }, 502);
+            const linkedQrs = await linkedQrResponse.json();
+            if (linkedQrs[0]?.is_locked) return json({ error: "The shop's QR code is locked. Unlock that QR code before changing the shop name, URL, or active state." }, 423);
+          }
           const update = {};
           if (body.name !== undefined) {
             const name = String(body.name).trim();
@@ -381,7 +411,7 @@ export default {
         try {
           const id = decodeURIComponent(url.pathname.slice("/api/stores/".length, -"/generate".length));
           if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Invalid shop ID" }, 400);
-          const storeResponse = await fetch(`${supabaseUrl}/rest/v1/stores?id=eq.${encodeURIComponent(id)}&select=id,name,slug,destination_url,is_active&limit=1`, { headers });
+          const storeResponse = await fetch(`${supabaseUrl}/rest/v1/stores?id=eq.${encodeURIComponent(id)}&select=id,name,slug,destination_url,is_active,is_locked&limit=1`, { headers });
           if (!storeResponse.ok) return json({ error: "Could not load shop" }, 502);
           const shops = await storeResponse.json();
           const shop = shops[0];
@@ -394,11 +424,16 @@ export default {
           const existing = await existingResponse.json();
           if (existing.length) {
             const code = existing[0].code;
-            const sync = await fetch(`${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}`, {
-              method: "PATCH", headers: { ...headers, Prefer: "return=minimal" },
-              body: JSON.stringify({ title: shop.name, destination_url: shop.destination_url, is_active: shop.is_active })
-            });
-            if (!sync.ok) return json({ error: "Could not refresh the shop QR code" }, 502);
+            const existingQrCheck = await fetch(`${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}&select=is_locked&limit=1`, { headers });
+            if (!existingQrCheck.ok) return json({ error: "Could not verify the existing QR code" }, 502);
+            const existingQrRows = await existingQrCheck.json();
+            if (!existingQrRows[0]?.is_locked) {
+              const sync = await fetch(`${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}`, {
+                method: "PATCH", headers: { ...headers, Prefer: "return=minimal" },
+                body: JSON.stringify({ title: shop.name, destination_url: shop.destination_url, is_active: shop.is_active })
+              });
+              if (!sync.ok) return json({ error: "Could not refresh the shop QR code" }, 502);
+            }
             return json({ code, existing: true });
           }
           const code = shop.slug;
@@ -422,7 +457,16 @@ export default {
         try {
           const id = decodeURIComponent(url.pathname.slice("/api/stores/".length));
           if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Invalid shop ID" }, 400);
-          // Unlink QR codes first; never delete QR codes or scan history with a shop.
+          const shopCheck = await fetch(`${supabaseUrl}/rest/v1/stores?id=eq.${encodeURIComponent(id)}&select=is_locked&limit=1`, { headers });
+          if (!shopCheck.ok) return json({ error: "Could not verify shop lock" }, 502);
+          const shopRows = await shopCheck.json();
+          if (!shopRows[0]) return json({ error: "Shop not found" }, 404);
+          if (shopRows[0].is_locked) return json({ error: "This shop is locked. Unlock it before removing it." }, 423);
+          const linkedCheck = await fetch(`${supabaseUrl}/rest/v1/qr_codes?store_id=eq.${encodeURIComponent(id)}&select=code,is_locked`, { headers });
+          if (!linkedCheck.ok) return json({ error: "Could not verify linked QR codes" }, 502);
+          const linkedCodes = await linkedCheck.json();
+          if (linkedCodes.some(item => item.is_locked)) return json({ error: "At least one linked QR code is locked. Unlock it before removing this shop." }, 423);
+          // Unlink QR codes first; never delete QR codes or scan history with a shop. never delete QR codes or scan history with a shop.
           const unlink = await fetch(`${supabaseUrl}/rest/v1/qr_codes?store_id=eq.${encodeURIComponent(id)}`, {
             method: "PATCH",
             headers: { ...headers, Prefer: "return=minimal" },
@@ -445,7 +489,7 @@ export default {
       if (url.pathname === "/api/qr" && request.method === "GET") {
         try {
           const response = await fetch(
-            `${supabaseUrl}/rest/v1/qr_codes?select=title,code,destination_url,is_active,store_id&order=code.asc`,
+            `${supabaseUrl}/rest/v1/qr_codes?select=title,code,destination_url,is_active,store_id,is_locked&order=code.asc`,
             { headers }
           );
 
@@ -586,6 +630,24 @@ export default {
       }
 
       // Update QR code
+      if (url.pathname.startsWith("/api/qr/") && url.pathname.endsWith("/lock") && request.method === "POST") {
+        try {
+          const code = decodeURIComponent(url.pathname.slice("/api/qr/".length, -"/lock".length));
+          if (!/^[a-zA-Z0-9_-]+$/.test(code)) return json({ error: "Invalid QR code" }, 400);
+          const body = await request.json();
+          if (typeof body.is_locked !== "boolean") return json({ error: "Invalid lock state" }, 400);
+          const response = await fetch(`${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}`, {
+            method: "PATCH", headers: { ...headers, Prefer: "return=representation" },
+            body: JSON.stringify({ is_locked: body.is_locked })
+          });
+          if (!response.ok) return json({ error: "Could not update QR lock" }, 502);
+          return json(await response.json());
+        } catch (error) {
+          console.error("QR lock update failed:", error);
+          return json({ error: "Could not update QR lock" }, 400);
+        }
+      }
+
       if (url.pathname.startsWith("/api/qr/") && request.method === "PATCH") {
         try {
           const code = decodeURIComponent(
@@ -596,6 +658,11 @@ export default {
             return json({ error: "Invalid QR code" }, 400);
           }
 
+          const lockCheck = await fetch(`${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}&select=is_locked&limit=1`, { headers });
+          if (!lockCheck.ok) return json({ error: "Could not verify QR lock" }, 502);
+          const lockRows = await lockCheck.json();
+          if (!lockRows[0]) return json({ error: "QR code not found" }, 404);
+          if (lockRows[0].is_locked) return json({ error: "This QR code is locked. Unlock it before editing." }, 423);
           const body = await request.json();
           const update = {};
 
@@ -665,18 +732,107 @@ export default {
         }
       }
 
-      // Scan counter management.
+      // Private admin notes linked to a shop, a QR code, or both.
+      if (url.pathname === "/api/notes" && request.method === "GET") {
+        try {
+          const response = await fetch(`${supabaseUrl}/rest/v1/qroma_notes?select=id,store_id,code,note,status,created_at,updated_at&order=created_at.desc`, { headers });
+          if (!response.ok) return json({ error: "Could not load notes" }, 502);
+          return json(await response.json());
+        } catch (error) {
+          console.error("Load notes failed:", error);
+          return json({ error: "Could not load notes" }, 502);
+        }
+      }
+
+      if (url.pathname === "/api/notes" && request.method === "POST") {
+        try {
+          const body = await request.json();
+          const note = String(body.note || "").trim();
+          const status = String(body.status || "pending");
+          if (!note || note.length > 4000) return json({ error: "Write a note (up to 4000 characters)." }, 400);
+          if (!["done", "pending", "rejected"].includes(status)) return json({ error: "Invalid note status" }, 400);
+          if (!body.store_id && !body.code) return json({ error: "Choose a shop or QR code for this note." }, 400);
+          if (body.store_id && !/^[0-9a-f-]{36}$/i.test(String(body.store_id))) return json({ error: "Invalid shop selection" }, 400);
+          if (body.code && !/^[a-zA-Z0-9_-]+$/.test(String(body.code))) return json({ error: "Invalid QR selection" }, 400);
+          const response = await fetch(`${supabaseUrl}/rest/v1/qroma_notes`, {
+            method: "POST", headers: { ...headers, Prefer: "return=representation" },
+            body: JSON.stringify({ store_id: body.store_id || null, code: body.code || null, note, status })
+          });
+          if (!response.ok) {
+            const detail = await response.text();
+            console.error("Create note failed:", response.status, detail);
+            return json({ error: "Could not save note" }, 502);
+          }
+          return json(await response.json(), 201);
+        } catch (error) {
+          console.error("Create note failed:", error);
+          return json({ error: "Could not save note" }, 400);
+        }
+      }
+
+      if (url.pathname.startsWith("/api/notes/") && request.method === "PATCH") {
+        try {
+          const id = decodeURIComponent(url.pathname.slice("/api/notes/".length));
+          if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Invalid note ID" }, 400);
+          const body = await request.json();
+          const update = {};
+          if (body.note !== undefined) {
+            const note = String(body.note || "").trim();
+            if (!note || note.length > 4000) return json({ error: "Write a note (up to 4000 characters)." }, 400);
+            update.note = note;
+          }
+          if (body.status !== undefined) {
+            if (!["done", "pending", "rejected"].includes(String(body.status))) return json({ error: "Invalid note status" }, 400);
+            update.status = String(body.status);
+          }
+          if (!Object.keys(update).length) return json({ error: "Nothing to update" }, 400);
+          update.updated_at = new Date().toISOString();
+          const response = await fetch(`${supabaseUrl}/rest/v1/qroma_notes?id=eq.${encodeURIComponent(id)}`, {
+            method: "PATCH", headers: { ...headers, Prefer: "return=representation" },
+            body: JSON.stringify(update)
+          });
+          if (!response.ok) return json({ error: "Could not update note" }, 502);
+          return json(await response.json());
+        } catch (error) {
+          console.error("Update note failed:", error);
+          return json({ error: "Could not update note" }, 400);
+        }
+      }
+
+      if (url.pathname.startsWith("/api/notes/") && request.method === "DELETE") {
+        try {
+          const id = decodeURIComponent(url.pathname.slice("/api/notes/".length));
+          if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Invalid note ID" }, 400);
+          const response = await fetch(`${supabaseUrl}/rest/v1/qroma_notes?id=eq.${encodeURIComponent(id)}`, {
+            method: "DELETE", headers: { ...headers, Prefer: "return=minimal" }
+          });
+          if (!response.ok) return json({ error: "Could not delete note" }, 502);
+          return json({ success: true });
+        } catch (error) {
+          console.error("Delete note failed:", error);
+          return json({ error: "Could not delete note" }, 400);
+        }
+      }
+
+      // Scan counter and history management. Omit codes to apply an action to all QR codes.
       if (url.pathname === "/api/scans/manage" && request.method === "POST") {
         try {
           const body = await request.json();
           const action = String(body.action || "");
-          if (!["reset_counters", "delete_all_history"].includes(action)) {
-            return json({ error: "Invalid scan management action" }, 400);
+          const allowed = ["reset_counters", "delete_history", "delete_all_history"];
+          if (!allowed.includes(action)) return json({ error: "Invalid scan management action" }, 400);
+          let codes = null;
+          if (body.codes !== undefined && body.codes !== null) {
+            if (!Array.isArray(body.codes) || body.codes.length > 200 || body.codes.some(code => !/^[a-zA-Z0-9_-]+$/.test(String(code)))) {
+              return json({ error: "Invalid QR code selection" }, 400);
+            }
+            codes = [...new Set(body.codes.map(String))];
+            if (!codes.length) return json({ error: "Select at least one QR code." }, 400);
           }
+          if (action === "delete_history" && !codes) return json({ error: "Select QR codes before deleting selected history." }, 400);
           const response = await fetch(`${supabaseUrl}/rest/v1/rpc/qroma_manage_scans`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({ action })
+            method: "POST", headers,
+            body: JSON.stringify({ action, codes })
           });
           if (!response.ok) {
             const detail = await response.text();
@@ -701,17 +857,22 @@ export default {
             return json({ error: "Invalid QR code" }, 400);
           }
 
-          // Keep printed links and scan history intact: only delete QR codes with no scans.
-          const scansResponse = await fetch(
-            `${supabaseUrl}/rest/v1/qr_scans?code=eq.${encodeURIComponent(code)}&select=id&limit=1`,
-            { headers }
-          );
-          if (!scansResponse.ok) return json({ error: "Could not verify QR scan history. Please retry." }, 502);
-          const scans = await scansResponse.json();
-          if (scans.length) {
-            return json({ error: "This QR code has scan history. Disable it instead to preserve its permanent link and history." }, 409);
+          const lockCheck = await fetch(`${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}&select=is_locked&limit=1`, { headers });
+          if (!lockCheck.ok) return json({ error: "Could not verify QR lock. Please retry." }, 502);
+          const lockRows = await lockCheck.json();
+          if (!lockRows[0]) return json({ error: "QR code not found" }, 404);
+          if (lockRows[0].is_locked) return json({ error: "This QR code is locked. Unlock it before deleting." }, 423);
+
+          const baselineDelete = await fetch(`${supabaseUrl}/rest/v1/rpc/qroma_delete_scan_baseline`, {
+            method: "POST", headers, body: JSON.stringify({ target_code: code })
+          });
+          if (!baselineDelete.ok) {
+            const detail = await baselineDelete.text();
+            console.error("Delete QR baseline failed:", detail);
+            return json({ error: "Could not prepare QR deletion" }, 502);
           }
 
+          // qr_scans.code uses ON DELETE CASCADE, so deleting the QR removes its scan history too.
           const response = await fetch(
             `${supabaseUrl}/rest/v1/qr_codes?code=eq.${encodeURIComponent(code)}`,
             {
