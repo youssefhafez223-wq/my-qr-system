@@ -273,12 +273,14 @@ th{color:#00e4ed;background:#071827}tr:hover td{background:#0a2638}
 .shopRow,.shopListHead{width:1120px;min-width:1120px;box-sizing:border-box;grid-template-columns:160px 160px 125px 205px 1fr}
 .shopActionsCell{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;min-width:0}
 .shopActionsCell button{flex:0 0 auto;white-space:nowrap}
-.shopRow.locked-row{background:linear-gradient(rgba(170,180,190,.20),rgba(170,180,190,.20))!important}
+.shopRow.locked-row{position:relative;isolation:isolate;background:transparent!important}
+.shopRow.locked-row::after{content:"";position:absolute;inset:0;background:rgba(170,180,190,.20);pointer-events:none;z-index:2;border-radius:inherit}
+.shopRow.locked-row>*{position:relative;z-index:1}
 @media(max-width:700px){#shopTableScroll{border-radius:10px}.shopRow,.shopListHead{width:1120px;min-width:1120px;grid-template-columns:160px 160px 125px 205px 1fr}.shopRow{align-items:center}}
 
 
 /* QROMA lock states, Notes, and scan selection */
-.locked-row td{background:rgba(170,180,190,.20)!important}.shopRow.locked-row{background:rgba(170,180,190,.20)}
+.locked-row td{background:rgba(170,180,190,.20)!important}
 .lockButton{width:40px;height:40px;min-width:40px;padding:0;margin:0 3px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #3d7188;border-radius:9px;background:#102d43;color:#dffaff;font-size:19px;line-height:1}
 .lockButton:active{transform:scale(.96)}
 button:disabled{opacity:1!important;filter:none!important;cursor:not-allowed!important}
@@ -422,10 +424,9 @@ button:disabled{opacity:1!important;filter:none!important;cursor:not-allowed!imp
       <strong id="selectedScanCount">0 selected</strong>
       <button class="secondary" onclick="resetSelectedScanCounters()">Reset Selected Counters</button>
       <button class="danger" onclick="deleteSelectedScanHistory()">Delete Selected History</button>
-      <button class="secondary" onclick="resetScanCounters()">Reset All Counters · Keep History</button>
-      <button class="danger" onclick="deleteAllScanHistory()">Delete All Scan History</button>
+
     </div>
-    <p class="subtitle">Select individual QR codes or Select All. Reset Counter keeps old history; Delete History permanently removes scan records for selected codes. QR links remain active.</p>
+    <p class="subtitle">Select one or more QR codes, or use Select All. Reset Selected Counters clears the displayed counter but keeps the old scan records. Delete Selected History permanently removes scan records for the selected codes. QR links remain active.</p>
     <h3>By Shop</h3><div id="shopScanStats"></div>
     <h3 style="margin-top:22px">By QR Code</h3><div id="qrScanStats"></div>
   </div>
@@ -1109,11 +1110,15 @@ function renderNotes() {
       status.appendChild(option);
     });
     status.onchange = () => updateNote(item.id, { status: status.value });
+    const edit = document.createElement("button");
+    edit.className = "secondary";
+    edit.textContent = "Edit";
+    edit.onclick = () => editNote(item);
     const remove = document.createElement("button");
     remove.className = "danger";
     remove.textContent = "Delete Note";
     remove.onclick = () => deleteNote(item);
-    controls.append(status, remove);
+    controls.append(status, edit, remove);
     card.append(meta, body, controls);
     list.appendChild(card);
   });
@@ -1194,6 +1199,13 @@ async function updateNote(id, update) {
     await loadNotes();
     renderNotes();
   } catch (e) { alert(e.message); await loadNotes(); renderNotes(); }
+}
+
+async function editNote(item) {
+  const revised = prompt("Edit note:", item.note);
+  if (revised === null) return;
+  if (!revised.trim()) return alert("The note cannot be empty.");
+  await updateNote(item.id, { note: revised.trim() });
 }
 
 async function deleteNote(item) {
