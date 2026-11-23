@@ -814,6 +814,26 @@ export default {
         }
       }
 
+      // Admin-only scan history, newest records first.
+      if (url.pathname === "/api/scans/history" && request.method === "GET") {
+        try {
+          const requested = Number(url.searchParams.get("limit") || 100);
+          const limit = Math.min(100, Math.max(1, Number.isFinite(requested) ? Math.floor(requested) : 100));
+          const response = await fetch(
+            `${supabaseUrl}/rest/v1/qr_scans?select=id,code,scanned_at&order=scanned_at.desc,id.desc&limit=${limit}`,
+            { headers }
+          );
+          if (!response.ok) {
+            console.error("Load scan history failed:", response.status, await response.text());
+            return json({ error: "Could not load scan history" }, 502);
+          }
+          return json(await response.json());
+        } catch (error) {
+          console.error("Load scan history failed:", error);
+          return json({ error: "Could not load scan history" }, 502);
+        }
+      }
+
       // Scan counter and history management. Omit codes to apply an action to all QR codes.
       if (url.pathname === "/api/scans/manage" && request.method === "POST") {
         try {
