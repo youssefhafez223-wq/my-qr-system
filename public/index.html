@@ -530,7 +530,7 @@ button:disabled{opacity:1!important;filter:none!important;cursor:not-allowed!imp
 
 <script>
 
-let token = "";
+let token = localStorage.getItem("qroma_admin_token") || "";
 let currentQR = "";
 let stores = [];
 let qrItems = [];
@@ -590,6 +590,7 @@ async function login() {
     }
 
     token = data.token;
+    localStorage.setItem("qroma_admin_token", token);
 
     document.getElementById("loginPanel").classList.add("hidden");
 
@@ -608,10 +609,37 @@ async function login() {
 function logout() {
 
   token = "";
+  localStorage.removeItem("qroma_admin_token");
 
   document.getElementById("dashboard").classList.add("hidden");
-
   document.getElementById("loginPanel").classList.remove("hidden");
+  document.getElementById("password").value = "";
+}
+
+async function restoreSession() {
+  if (!token) return;
+
+  try {
+    const response = await fetch("/api/stores", {
+      headers: { "Authorization": "Bearer " + token }
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      logout();
+      return;
+    }
+
+    if (!response.ok) return;
+
+    document.getElementById("loginPanel").classList.add("hidden");
+    document.getElementById("dashboard").classList.remove("hidden");
+
+    await Promise.all([loadShops(), loadQR()]);
+    filterQRRows();
+  } catch (error) {
+    // Keep the saved session; a temporary network issue should not log the admin out.
+    console.warn("Could not restore QROMA session:", error);
+  }
 }
 
 function filterQRRows() {
@@ -1592,6 +1620,8 @@ function downloadQR() {
 
   link.click();
 }
+
+restoreSession();
 
 </script>
 
