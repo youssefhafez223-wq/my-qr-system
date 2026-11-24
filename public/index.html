@@ -428,10 +428,8 @@ button:disabled{opacity:1!important;filter:none!important;cursor:not-allowed!imp
       <strong id="selectedScanCount">0 selected</strong>
       <button class="secondary" onclick="resetSelectedScanCounters()">Reset Selected Counters</button>
       <button class="danger" onclick="deleteSelectedScanHistory()">Delete Selected History</button>
-      <button class="secondary" onclick="resetScanCounters()">Reset All Counters</button>
-      <button class="danger" onclick="deleteAllScanHistory()">Delete All History</button>
     </div>
-    <p class="subtitle">Select QR codes below or select a whole shop above. Reset Counters clears displayed counts but keeps history. Delete History permanently removes scan records. QR links remain active.</p>
+    <p class="subtitle">Select QR codes in Scan Statistics or select history rows below. Selecting a history row selects that QR code’s full history. Reset Selected Counters keeps history; Delete Selected History permanently removes it. QR links remain active.</p>
     <h3>Scan Statistics</h3><div id="combinedScanStats"></div>
     <h3 style="margin-top:24px">Recent Scan History (Last 100)</h3>
     <p class="subtitle">Only the 100 most recent scan records are kept. Older records are removed automatically as new scans arrive.</p>
@@ -545,6 +543,7 @@ let scanTimer = null;
 let notes = [];
 let noteTarget = null;
 let selectedScanCodes = new Set();
+let scanHistoryRows = [];
 
 async function api(path, method = "GET", body = null) {
 
@@ -959,22 +958,78 @@ async function loadScanHistory() {
   const target = document.getElementById("scanHistoryTable");
   target.textContent = "Loading scan history...";
   try {
-    const rows = await api("/api/scans/history?limit=100");
-    target.innerHTML = "";
-    if (!rows.length) {
-      target.textContent = "No scan history recorded yet.";
-      return;
-    }
-    const qrTitles = new Map(qrItems.map(item => [item.code, item.title || item.code]));
-    const tableRows = rows.map(row => [
-      qrTitles.get(row.code) || row.code,
-      row.code,
-      row.scanned_at ? new Date(row.scanned_at).toLocaleString() : "Unknown"
-    ]);
-    target.appendChild(makeDetailTable(["QR Code", "Code", "Scanned At"], tableRows));
+    scanHistoryRows = await api("/api/scans/history?limit=100");
+    renderScanHistory();
   } catch (error) {
     target.textContent = error.message || "Could not load scan history.";
   }
+}
+
+function renderScanHistory() {
+  const target = document.getElementById("scanHistoryTable");
+  if (!target) return;
+  target.innerHTML = "";
+  if (!scanHistoryRows.length) {
+    target.textContent = "No scan history recorded yet.";
+    return;
+  }
+  const qrTitles = new Map(qrItems.map(item => [item.code, item.title || item.code]));
+  const wrap = document.createElement("div");
+  wrap.style.overflowX = "auto";
+  const table = document.createElement("table");
+  table.className = "detailTable";
+  const thead = document.createElement("thead");
+  const head = document.createElement("tr");
+  const selectHead = document.createElement("th");
+  selectHead.className = "scanSelectCell";
+  const selectAll = document.createElement("input");
+  selectAll.type = "checkbox";
+  selectAll.id = "selectAllHistoryRows";
+  selectAll.setAttribute("aria-label", "Select all QR codes in recent scan history");
+  selectAll.onchange = () => toggleSelectAllHistory(selectAll.checked);
+  selectHead.appendChild(selectAll);
+  head.appendChild(selectHead);
+  ["QR Code", "Code", "Scanned At"].forEach(label => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    head.appendChild(th);
+  });
+  thead.appendChild(head);
+  table.appendChild(thead);
+  const tbody = document.createElement("tbody");
+  scanHistoryRows.forEach(row => {
+    const tr = document.createElement("tr");
+    const selectCell = document.createElement("td");
+    selectCell.className = "scanSelectCell";
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.dataset.historyCode = row.code;
+    check.checked = selectedScanCodes.has(row.code);
+    check.setAttribute("aria-label", "Select scan history for " + (qrTitles.get(row.code) || row.code));
+    check.onchange = () => {
+      check.checked ? selectedScanCodes.add(row.code) : selectedScanCodes.delete(row.code);
+      updateScanSelectionUI();
+    };
+    selectCell.appendChild(check);
+    tr.appendChild(selectCell);
+    [qrTitles.get(row.code) || row.code, row.code, row.scanned_at ? new Date(row.scanned_at).toLocaleString() : "Unknown"].forEach(value => {
+      const td = document.createElement("td");
+      td.textContent = String(value);
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  target.appendChild(wrap);
+  updateScanSelectionUI();
+}
+
+function toggleSelectAllHistory(checked) {
+  const historyCodes = new Set(scanHistoryRows.map(row => row.code));
+  historyCodes.forEach(code => checked ? selectedScanCodes.add(code) : selectedScanCodes.delete(code));
+  renderScanStats();
+  renderScanHistory();
 }
 
 function renderScanStats() {
@@ -1040,28 +1095,45 @@ function renderScanStats() {
   updateScanSelectionUI();
 }
 
+function getVisibleScanCodes() {
+  const query = (document.getElementById("scanShopSearch")?.value || "").trim().toLowerCase();
+  return qrItems.filter(item => {
+    const shopName = stores.find(shop => String(shop.id) === String(item.store_id))?.name || "No shop";
+    return !query || shopName.toLowerCase().includes(query) || String(item.title || "").toLowerCase().includes(query) || String(item.code || "").toLowerCase().includes(query);
+  }).map(item => item.code);
+}
+
 function updateScanSelectionUI() {
   const count = document.getElementById("selectedScanCount");
   if (count) count.textContent = selectedScanCodes.size + " selected";
   const selectAll = document.getElementById("selectAllScanCodes");
-  const visible = [...document.querySelectorAll("#combinedScanStats input[data-code]")];
+  const visibleCodes = getVisibleScanCodes();
+  const selectedVisible = visibleCodes.filter(code => selectedScanCodes.has(code)).length;
   if (selectAll) {
-    selectAll.checked = visible.length > 0 && visible.every(input => selectedScanCodes.has(input.dataset.code));
-    selectAll.indeterminate = visible.some(input => selectedScanCodes.has(input.dataset.code)) && !selectAll.checked;
+    selectAll.checked = visibleCodes.length > 0 && selectedVisible === visibleCodes.length;
+    selectAll.indeterminate = selectedVisible > 0 && !selectAll.checked;
   }
   document.querySelectorAll("#combinedScanStats input[aria-label^=\"Select all QR codes for\"]").forEach(input => {
     const shopCodes = qrItems.filter(item => String(item.store_id) === String(input.dataset.shopId));
     input.checked = shopCodes.length > 0 && shopCodes.every(item => selectedScanCodes.has(item.code));
     input.indeterminate = shopCodes.some(item => selectedScanCodes.has(item.code)) && !input.checked;
   });
+  document.querySelectorAll("#scanHistoryTable input[data-history-code]").forEach(input => {
+    input.checked = selectedScanCodes.has(input.dataset.historyCode);
+  });
+  const historySelectAll = document.getElementById("selectAllHistoryRows");
+  if (historySelectAll) {
+    const historyCodes = [...new Set(scanHistoryRows.map(row => row.code))];
+    const selectedHistoryCodes = historyCodes.filter(code => selectedScanCodes.has(code)).length;
+    historySelectAll.checked = historyCodes.length > 0 && selectedHistoryCodes === historyCodes.length;
+    historySelectAll.indeterminate = selectedHistoryCodes > 0 && !historySelectAll.checked;
+  }
 }
 
 function toggleSelectAllScanCodes(checked) {
-  document.querySelectorAll("#combinedScanStats input[data-code]").forEach(input => {
-    if (checked) selectedScanCodes.add(input.dataset.code);
-    else selectedScanCodes.delete(input.dataset.code);
-  });
+  getVisibleScanCodes().forEach(code => checked ? selectedScanCodes.add(code) : selectedScanCodes.delete(code));
   renderScanStats();
+  renderScanHistory();
 }
 
 async function resetSelectedScanCounters() {
@@ -1088,29 +1160,6 @@ async function deleteSelectedScanHistory() {
     await loadQR();
     await openScanStats();
     alert("Selected scan history was deleted. QR codes were not changed.");
-  } catch (e) { alert(e.message); }
-}
-
-async function resetScanCounters() {
-  if (!confirm("Reset all current scan counters? Old scan history will be kept.")) return;
-  try {
-    await api("/api/scans/manage", "POST", { action: "reset_counters" });
-    selectedScanCodes.clear();
-    await loadQR();
-    await openScanStats();
-    alert("All counters reset. Previous scan history was preserved.");
-  } catch (e) { alert(e.message); }
-}
-
-async function deleteAllScanHistory() {
-  if (!confirm("Permanently delete ALL scan history? QR codes and destination URLs will remain. This cannot be undone.")) return;
-  if (!confirm("Final confirmation: delete every old scan record now?")) return;
-  try {
-    await api("/api/scans/manage", "POST", { action: "delete_all_history" });
-    selectedScanCodes.clear();
-    await loadQR();
-    await openScanStats();
-    alert("All scan history was deleted. QR codes were not changed.");
   } catch (e) { alert(e.message); }
 }
 
