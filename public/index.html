@@ -1454,8 +1454,6 @@ async function generateShopQR(shop) {
 
 async function toggleShop(shop) {
   if (shop.is_locked) return alert("This shop is locked. Unlock it before changing its status.");
-  const action = shop.is_active ? "disable" : "enable";
-  if (!confirm((shop.is_active ? "Disable " : "Enable ") + shop.name + "?")) return;
   try {
     await api("/api/stores/" + encodeURIComponent(shop.id), "PATCH", { is_active: !shop.is_active });
     await loadShops();
