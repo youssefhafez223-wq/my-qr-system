@@ -1006,12 +1006,19 @@ function renderScanStats() {
     shopCheck.dataset.shopId = String(shop.id);
     shopCheck.onchange=()=>{codes.forEach(item=>shopCheck.checked?selectedScanCodes.add(item.code):selectedScanCodes.delete(item.code));renderScanStats();};
     const shopCell=document.createElement("strong"); shopCell.textContent=shop.name;
-    rows.push([shopCheck,shopCell,scans.toLocaleString(),"—"]);
-    codes.filter(item=>visibleQrItems.includes(item)).forEach(item=>{
+    const latestShopScan = codes
+      .map(item => item.last_scanned_at ? new Date(item.last_scanned_at) : null)
+      .filter(date => date && !Number.isNaN(date.getTime()))
+      .sort((a, b) => b.getTime() - a.getTime())[0];
+    rows.push([shopCheck,shopCell,scans.toLocaleString(),latestShopScan ? latestShopScan.toLocaleString() : "Never"]);
+    codes.filter(item => visibleQrItems.includes(item)).forEach(item => {
+      const qrLabel = String(item.title || item.code || "").trim();
+      const isDuplicateOfShopName = qrLabel.toLowerCase() === String(shop.name || "").trim().toLowerCase();
+      if (isDuplicateOfShopName) return;
       const check=document.createElement("input");
       check.type="checkbox"; check.checked=selectedScanCodes.has(item.code); check.dataset.code=item.code;
       check.onchange=()=>{check.checked?selectedScanCodes.add(item.code):selectedScanCodes.delete(item.code);renderScanStats();};
-      const label=document.createElement("span"); label.textContent="↳ "+(item.title||item.code);
+      const label=document.createElement("span"); label.textContent="↳ "+qrLabel;
       rows.push([check,label,(Number(item.scan_count)||0).toLocaleString(),item.last_scanned_at?new Date(item.last_scanned_at).toLocaleString():"Never"]);
     });
   });
