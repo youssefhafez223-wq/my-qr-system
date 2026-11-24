@@ -1051,7 +1051,7 @@ function renderScanStats() {
       check.type="checkbox"; check.checked=selectedScanCodes.has(item.code); check.dataset.code=item.code;
       check.onchange=()=>{check.checked?selectedScanCodes.add(item.code):selectedScanCodes.delete(item.code);renderScanStats();};
       const label=document.createElement("span"); label.textContent="↳ "+qrLabel;
-      rows.push([check,label,(Number(item.scan_count)||0).toLocaleString(),item.last_scanned_at?new Date(item.last_scanned_at).toLocaleString():"Never"]);
+      rows.push([check,label,(Number(item.scan_count)||0).toLocaleString(),Number(item.scan_count)>0 && item.last_scanned_at?new Date(item.last_scanned_at).toLocaleString():"Never"]);
     });
   });
   const noShop=visibleQrItems.filter(item=>!item.store_id || !stores.some(shop=>String(shop.id)===String(item.store_id)));
@@ -1059,7 +1059,7 @@ function renderScanStats() {
     const check=document.createElement("input"); check.type="checkbox"; check.checked=selectedScanCodes.has(item.code); check.dataset.code=item.code;
     check.onchange=()=>{check.checked?selectedScanCodes.add(item.code):selectedScanCodes.delete(item.code);renderScanStats();};
     const label=document.createElement("span"); label.textContent=item.title||item.code;
-    rows.push([check,label,(Number(item.scan_count)||0).toLocaleString(),item.last_scanned_at?new Date(item.last_scanned_at).toLocaleString():"Never"]);
+    rows.push([check,label,(Number(item.scan_count)||0).toLocaleString(),Number(item.scan_count)>0 && item.last_scanned_at?new Date(item.last_scanned_at).toLocaleString():"Never"]);
   });
   const target=document.getElementById("combinedScanStats"); target.innerHTML="";
   if(rows.length) target.appendChild(makeDetailTable(["Select","Manage Shop / QR Code","Scans","Last Scanned"],rows));
