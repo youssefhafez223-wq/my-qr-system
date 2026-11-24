@@ -997,12 +997,12 @@ function updateScanSelectionUI() {
   const count = document.getElementById("selectedScanCount");
   if (count) count.textContent = selectedScanCodes.size + " selected";
   const selectAll = document.getElementById("selectAllScanCodes");
-  const visible = [...document.querySelectorAll("#qrScanStats input[data-code]")];
+  const visible = [...document.querySelectorAll("#combinedScanStats input[data-code]")];
   if (selectAll) {
     selectAll.checked = visible.length > 0 && visible.every(input => selectedScanCodes.has(input.dataset.code));
     selectAll.indeterminate = visible.some(input => selectedScanCodes.has(input.dataset.code)) && !selectAll.checked;
   }
-  document.querySelectorAll("#shopScanStats input[data-shop-id]").forEach(input => {
+  document.querySelectorAll("#combinedScanStats input[aria-label^=\"Select all QR codes for\"]").forEach(input => {
     const shopCodes = qrItems.filter(item => String(item.store_id) === String(input.dataset.shopId));
     input.checked = shopCodes.length > 0 && shopCodes.every(item => selectedScanCodes.has(item.code));
     input.indeterminate = shopCodes.some(item => selectedScanCodes.has(item.code)) && !input.checked;
