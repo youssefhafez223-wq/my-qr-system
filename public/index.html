@@ -951,11 +951,17 @@ function renderScanStats() {
   document.getElementById("statsAllScans").textContent = totalScans.toLocaleString();
   document.getElementById("statsShopCount").textContent = shopsWithCodes.toLocaleString();
   document.getElementById("statsQrCount").textContent = qrItems.length.toLocaleString();
-  const matchedShops = stores.filter(shop => !query || String(shop.name || "").toLowerCase().includes(query))
-    .map(shop => {
+  const matchedShops = stores.map(shop => {
       const codes = qrItems.filter(item => String(item.store_id) === String(shop.id));
-      return { shop, codes, scans: codes.reduce((sum, item) => sum + (Number(item.scan_count) || 0), 0) };
-    }).sort((a,b) => b.scans-a.scans);
+      const matchingCodes = codes.filter(item => {
+        const title = String(item.title || "").toLowerCase();
+        const code = String(item.code || "").toLowerCase();
+        return !query || title.includes(query) || code.includes(query);
+      });
+      const shopMatches = !query || String(shop.name || "").toLowerCase().includes(query);
+      return { shop, codes, matchingCodes, shopMatches, scans: codes.reduce((sum, item) => sum + (Number(item.scan_count) || 0), 0) };
+    }).filter(group => group.shopMatches || group.matchingCodes.length > 0)
+      .sort((a,b) => b.scans-a.scans);
   const visibleQrItems = qrItems.filter(item => {
     const shopName = stores.find(shop => String(shop.id) === String(item.store_id))?.name || "No shop";
     return !query || shopName.toLowerCase().includes(query) || String(item.title || "").toLowerCase().includes(query) || String(item.code || "").toLowerCase().includes(query);
@@ -969,6 +975,7 @@ function renderScanStats() {
     shopCheck.checked = codes.length>0 && codes.every(item=>selectedScanCodes.has(item.code));
     shopCheck.disabled = !codes.length;
     shopCheck.setAttribute("aria-label","Select all QR codes for "+shop.name);
+    shopCheck.dataset.shopId = String(shop.id);
     shopCheck.onchange=()=>{codes.forEach(item=>shopCheck.checked?selectedScanCodes.add(item.code):selectedScanCodes.delete(item.code));renderScanStats();};
     const shopCell=document.createElement("strong"); shopCell.textContent=shop.name;
     rows.push([shopCheck,shopCell,scans.toLocaleString(),"—"]);
@@ -1010,7 +1017,7 @@ function updateScanSelectionUI() {
 }
 
 function toggleSelectAllScanCodes(checked) {
-  document.querySelectorAll("#qrScanStats input[data-code]").forEach(input => {
+  document.querySelectorAll("#combinedScanStats input[data-code]").forEach(input => {
     if (checked) selectedScanCodes.add(input.dataset.code);
     else selectedScanCodes.delete(input.dataset.code);
   });
