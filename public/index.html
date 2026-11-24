@@ -428,10 +428,14 @@ button:disabled{opacity:1!important;filter:none!important;cursor:not-allowed!imp
       <strong id="selectedScanCount">0 selected</strong>
       <button class="secondary" onclick="resetSelectedScanCounters()">Reset Selected Counters</button>
       <button class="danger" onclick="deleteSelectedScanHistory()">Delete Selected History</button>
-
+      <button class="secondary" onclick="resetScanCounters()">Reset All Counters</button>
+      <button class="danger" onclick="deleteAllScanHistory()">Delete All History</button>
     </div>
-    <p class="subtitle">Select QR codes below or select a whole shop above. Reset Selected Counters clears the displayed scan count but keeps scan records. Delete Selected History permanently removes the selected scan records. QR links remain active.</p>
+    <p class="subtitle">Select QR codes below or select a whole shop above. Reset Counters clears displayed counts but keeps history. Delete History permanently removes scan records. QR links remain active.</p>
     <h3>Scan Statistics</h3><div id="combinedScanStats"></div>
+    <h3 style="margin-top:24px">Recent Scan History (Last 100)</h3>
+    <p class="subtitle">Only the 100 most recent scan records are kept. Older records are removed automatically as new scans arrive.</p>
+    <div id="scanHistoryTable"></div>
   </div>
 
   <div id="notesPanel" class="panel hidden">
@@ -948,6 +952,7 @@ async function openScanStats() {
   await Promise.all([loadShops(), loadQR()]);
   renderScanStats();
   showSection("scanStatsPanel");
+  await loadScanHistory();
 }
 
 async function loadScanHistory() {
