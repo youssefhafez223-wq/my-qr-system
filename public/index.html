@@ -431,11 +431,7 @@ button:disabled{opacity:1!important;filter:none!important;cursor:not-allowed!imp
 
     </div>
     <p class="subtitle">Select QR codes below or select a whole shop above. Reset Selected Counters clears the displayed scan count but keeps scan records. Delete Selected History permanently removes the selected scan records. QR links remain active.</p>
-    <h3>By Manage Shops</h3><div id="shopScanStats"></div>
-    <h3 style="margin-top:22px">By QR Code</h3><div id="qrScanStats"></div>
-    <h3 style="margin-top:26px">Scan History</h3>
-    <p class="subtitle">Latest 100 recorded scans, including records kept after resetting counters.</p>
-    <div id="scanHistoryTable"></div>
+    <h3>Scan Statistics</h3><div id="combinedScanStats"></div>
   </div>
 
   <div id="notesPanel" class="panel hidden">
@@ -924,7 +920,6 @@ async function openScanStats() {
   await Promise.all([loadShops(), loadQR()]);
   renderScanStats();
   showSection("scanStatsPanel");
-  await loadScanHistory();
 }
 
 async function loadScanHistory() {
@@ -960,55 +955,41 @@ function renderScanStats() {
     .map(shop => {
       const codes = qrItems.filter(item => String(item.store_id) === String(shop.id));
       return { shop, codes, scans: codes.reduce((sum, item) => sum + (Number(item.scan_count) || 0), 0) };
-    }).sort((a, b) => b.scans - a.scans);
+    }).sort((a,b) => b.scans-a.scans);
+  const visibleQrItems = qrItems.filter(item => {
+    const shopName = stores.find(shop => String(shop.id) === String(item.store_id))?.name || "No shop";
+    return !query || shopName.toLowerCase().includes(query) || String(item.title || "").toLowerCase().includes(query) || String(item.code || "").toLowerCase().includes(query);
+  });
   const searchResults = document.getElementById("scanSearchResults");
   searchResults.innerHTML = "";
-  if (query && !matchedShops.length) searchResults.textContent = "No matching shop found.";
-  const shopTarget = document.getElementById("shopScanStats");
-  shopTarget.innerHTML = "";
-  if (matchedShops.length) {
-    const shopRows = matchedShops.map(({shop, codes, scans}) => {
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.dataset.shopId = shop.id;
-      checkbox.checked = codes.length > 0 && codes.every(item => selectedScanCodes.has(item.code));
-      checkbox.disabled = codes.length === 0;
-      checkbox.setAttribute("aria-label", "Select QR codes for " + shop.name);
-      checkbox.onchange = () => {
-        codes.forEach(item => checkbox.checked ? selectedScanCodes.add(item.code) : selectedScanCodes.delete(item.code));
-        renderScanStats();
-      };
-      const selectCell = document.createElement("span");
-      selectCell.className = "scanSelectCell";
-      selectCell.appendChild(checkbox);
-      return [selectCell, shop.name, codes.length, scans];
+  const rows = [];
+  matchedShops.forEach(({shop,codes,scans}) => {
+    const shopCheck = document.createElement("input");
+    shopCheck.type = "checkbox";
+    shopCheck.checked = codes.length>0 && codes.every(item=>selectedScanCodes.has(item.code));
+    shopCheck.disabled = !codes.length;
+    shopCheck.setAttribute("aria-label","Select all QR codes for "+shop.name);
+    shopCheck.onchange=()=>{codes.forEach(item=>shopCheck.checked?selectedScanCodes.add(item.code):selectedScanCodes.delete(item.code));renderScanStats();};
+    const shopCell=document.createElement("strong"); shopCell.textContent=shop.name;
+    rows.push([shopCheck,shopCell,scans.toLocaleString(),"—"]);
+    codes.filter(item=>visibleQrItems.includes(item)).forEach(item=>{
+      const check=document.createElement("input");
+      check.type="checkbox"; check.checked=selectedScanCodes.has(item.code); check.dataset.code=item.code;
+      check.onchange=()=>{check.checked?selectedScanCodes.add(item.code):selectedScanCodes.delete(item.code);renderScanStats();};
+      const label=document.createElement("span"); label.textContent="↳ "+(item.title||item.code);
+      rows.push([check,label,(Number(item.scan_count)||0).toLocaleString(),item.last_scanned_at?new Date(item.last_scanned_at).toLocaleString():"Never"]);
     });
-    shopTarget.appendChild(makeDetailTable(["Select", "Manage Shop", "QR Codes", "Total Scans"], shopRows));
-  } else shopTarget.textContent = "No shops with matching names.";
-
-  const visibleQrItems = [...qrItems].filter(item => {
-      const shopName = stores.find(shop => String(shop.id) === String(item.store_id))?.name || "No shop";
-      return !query || shopName.toLowerCase().includes(query) || String(item.title || "").toLowerCase().includes(query) || String(item.code || "").toLowerCase().includes(query);
-    }).sort((a,b) => (Number(b.scan_count)||0) - (Number(a.scan_count)||0));
-  const qrRows = visibleQrItems.map(item => {
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.dataset.code = item.code;
-      checkbox.checked = selectedScanCodes.has(item.code);
-      checkbox.onchange = () => {
-        if (checkbox.checked) selectedScanCodes.add(item.code);
-        else selectedScanCodes.delete(item.code);
-        updateScanSelectionUI();
-      };
-      const selectCell = document.createElement("span");
-      selectCell.className = "scanSelectCell";
-      selectCell.appendChild(checkbox);
-      return [selectCell, item.title || item.code, Number(item.scan_count)||0, item.last_scanned_at ? new Date(item.last_scanned_at).toLocaleString() : "Never"];
-    });
-  const qrTarget = document.getElementById("qrScanStats");
-  qrTarget.innerHTML = "";
-  if (qrRows.length) qrTarget.appendChild(makeDetailTable(["Select", "QR Code", "Scans", "Last Scanned"], qrRows));
-  else qrTarget.textContent = "No QR codes found.";
+  });
+  const noShop=visibleQrItems.filter(item=>!item.store_id || !stores.some(shop=>String(shop.id)===String(item.store_id)));
+  noShop.forEach(item=>{
+    const check=document.createElement("input"); check.type="checkbox"; check.checked=selectedScanCodes.has(item.code); check.dataset.code=item.code;
+    check.onchange=()=>{check.checked?selectedScanCodes.add(item.code):selectedScanCodes.delete(item.code);renderScanStats();};
+    const label=document.createElement("span"); label.textContent=item.title||item.code;
+    rows.push([check,label,(Number(item.scan_count)||0).toLocaleString(),item.last_scanned_at?new Date(item.last_scanned_at).toLocaleString():"Never"]);
+  });
+  const target=document.getElementById("combinedScanStats"); target.innerHTML="";
+  if(rows.length) target.appendChild(makeDetailTable(["Select","Manage Shop / QR Code","Scans","Last Scanned"],rows));
+  else target.textContent="No matching shops or QR codes found.";
   updateScanSelectionUI();
 }
 
@@ -1139,7 +1120,7 @@ function renderNotes() {
     const status = document.createElement("select");
     status.className = "noteStatus " + (item.status === "done" ? "noteStatusDone" : item.status === "rejected" ? "noteStatusRejected" : "noteStatusPending");
     status.setAttribute("aria-label", "Note status");
-    [["pending","Pending · قيد المتابعة"],["done","Done · تم"],["rejected","Rejected · مرفوض"]].forEach(([value,label]) => {
+    [["pending","Pending"],["done","Done"],["rejected","Rejected"]].forEach(([value,label]) => {
       const option = document.createElement("option");
       option.value = value; option.textContent = label; option.selected = item.status === value;
       status.appendChild(option);
