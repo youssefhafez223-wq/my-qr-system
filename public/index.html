@@ -733,7 +733,10 @@ async function loadQR() {
   try {
     const data = await api("/api/qr");
     const items = Array.isArray(data) ? data : [];
-    items.sort((a, b) => Number(!!a.is_locked) - Number(!!b.is_locked));
+    items.sort((a, b) =>
+      Number(!!a.is_locked) - Number(!!b.is_locked) ||
+      compareNamesDescending(a.title || a.code, b.title || b.code)
+    );
     qrItems = items;
     document.getElementById("total").textContent = items.length;
     document.getElementById("totalScans").textContent = items.reduce((sum, item) => sum + (Number(item.scan_count) || 0), 0).toLocaleString();
@@ -1278,6 +1281,10 @@ async function deleteNote(item) {
   } catch (e) { alert(e.message); }
 }
 
+function compareNamesDescending(a, b) {
+  return String(b || "").localeCompare(String(a || ""), undefined, { numeric: true, sensitivity: "base" });
+}
+
 function showSection(section) {
   ["dashboardMain", "shopsPanel", "scannerPanel", "shopDetailPanel", "scanStatsPanel", "notesPanel"].forEach(id => {
     document.getElementById(id).classList.toggle("hidden", id !== section);
@@ -1303,7 +1310,7 @@ async function filterShopRows() {
       if (name.includes(query)) return 2;
       return 3;
     };
-    return rank(a) - rank(b) || (a.dataset.name || "").localeCompare(b.dataset.name || "");
+    return rank(a) - rank(b) || compareNamesDescending(a.dataset.name, b.dataset.name);
   });
   rows.forEach(row => {
     row.hidden = Boolean(query && !row.dataset.search.includes(query));
@@ -1317,7 +1324,10 @@ async function loadShops() {
     const list = document.getElementById("shopList");
     list.innerHTML = "";
     if (!stores.length) { list.textContent = "No shops added yet."; return; }
-    stores.sort((a, b) => Number(!!a.is_locked) - Number(!!b.is_locked));
+    stores.sort((a, b) =>
+      Number(!!a.is_locked) - Number(!!b.is_locked) ||
+      compareNamesDescending(a.name, b.name)
+    );
     stores.forEach(shop => {
       const row = document.createElement("div");
       row.className = "shopRow";
