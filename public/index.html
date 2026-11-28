@@ -324,7 +324,7 @@ button:disabled{opacity:1!important;filter:none!important;cursor:not-allowed!imp
 .flowerGallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
 .flowerOption{margin:0!important;padding:7px!important;background:#1a2530;border:1px solid #344351;border-radius:12px;color:#fff;text-align:left;min-width:0}
 .flowerOption.selected{border:2px solid #f4c542;background:#28313a}
-.flowerOption img{width:100%;aspect-ratio:1.35;object-fit:cover;display:block;border-radius:8px;background:#e9f3fa}
+.flowerSprite{width:100%;aspect-ratio:1.35;display:block;border-radius:8px;background-image:url('/flowers/flower-catalog.svg');background-size:200% 500%;background-repeat:no-repeat;background-color:#e9f3fa}
 .flowerOption span{display:block;font-size:12px;margin:7px 2px 2px}
 .flowerFallback{height:96px;border-radius:8px;background:linear-gradient(135deg,#f6d7dc,#e8f0fa);display:grid;place-items:center;font-size:30px}
 .designerChoiceRow{display:flex;flex-wrap:wrap;gap:7px}
@@ -531,16 +531,16 @@ button:disabled{opacity:1!important;filter:none!important;cursor:not-allowed!imp
       <div class="designerControls">
         <h3>Flower styles</h3>
         <div class="flowerGallery" id="flowerGallery">
-          <button class="flowerOption selected" data-flower="red-roses" onclick="selectFlowerStyle('red-roses')"><img src="/flowers/01-red-roses.webp" alt="Red Roses" onerror="this.style.display='none';this.nextElementSibling.hidden=false"><div class="flowerFallback" hidden>🌹</div><span>1. Red Roses</span></button>
-          <button class="flowerOption" data-flower="white-roses" onclick="selectFlowerStyle('white-roses')"><img src="/flowers/02-white-roses.webp" alt="White Roses" onerror="this.style.display='none';this.nextElementSibling.hidden=false"><div class="flowerFallback" hidden>🤍🌹</div><span>2. White Roses</span></button>
-          <button class="flowerOption" data-flower="pink-roses" onclick="selectFlowerStyle('pink-roses')"><img src="/flowers/03-pink-roses.webp" alt="Pink Roses" onerror="this.style.display='none';this.nextElementSibling.hidden=false"><div class="flowerFallback" hidden>🌸</div><span>3. Pink Roses</span></button>
-          <button class="flowerOption" data-flower="yellow-sunflowers" onclick="selectFlowerStyle('yellow-sunflowers')"><img src="/flowers/04-yellow-sunflowers.webp" alt="Yellow Sunflowers" onerror="this.style.display='none';this.nextElementSibling.hidden=false"><div class="flowerFallback" hidden>🌻</div><span>4. Yellow Sunflowers</span></button>
-          <button class="flowerOption" data-flower="purple-orchids" onclick="selectFlowerStyle('purple-orchids')"><img src="/flowers/05-purple-orchids.webp" alt="Purple Orchids" onerror="this.style.display='none';this.nextElementSibling.hidden=false"><div class="flowerFallback" hidden>💜🌺</div><span>5. Purple Orchids</span></button>
-          <button class="flowerOption" data-flower="peach-peonies" onclick="selectFlowerStyle('peach-peonies')"><img src="/flowers/06-peach-peonies.webp" alt="Peach Peonies" onerror="this.style.display='none';this.nextElementSibling.hidden=false"><div class="flowerFallback" hidden>🌷</div><span>6. Peach Peonies</span></button>
-          <button class="flowerOption" data-flower="white-jasmine" onclick="selectFlowerStyle('white-jasmine')"><img src="/flowers/07-white-jasmine.webp" alt="White Jasmine" onerror="this.style.display='none';this.nextElementSibling.hidden=false"><div class="flowerFallback" hidden>🌼</div><span>7. White Jasmine</span></button>
-          <button class="flowerOption" data-flower="blue-hydrangeas" onclick="selectFlowerStyle('blue-hydrangeas')"><img src="/flowers/08-blue-hydrangeas.webp" alt="Blue Hydrangeas" onerror="this.style.display='none';this.nextElementSibling.hidden=false"><div class="flowerFallback" hidden>🩵🌸</div><span>8. Blue Hydrangeas</span></button>
-          <button class="flowerOption" data-flower="orange-tulips" onclick="selectFlowerStyle('orange-tulips')"><img src="/flowers/09-orange-tulips.webp" alt="Orange Tulips" onerror="this.style.display='none';this.nextElementSibling.hidden=false"><div class="flowerFallback" hidden>🌷</div><span>9. Orange Tulips</span></button>
-          <button class="flowerOption" data-flower="mixed-rainbow-bouquet" onclick="selectFlowerStyle('mixed-rainbow-bouquet')"><img src="/flowers/10-mixed-rainbow-bouquet.webp" alt="Mixed Rainbow Bouquet" onerror="this.style.display='none';this.nextElementSibling.hidden=false"><div class="flowerFallback" hidden>💐</div><span>10. Mixed Rainbow Bouquet</span></button>
+          <button class="flowerOption selected" data-flower="red-roses" onclick="selectFlowerStyle('red-roses')"><div class="flowerSprite" style="background-position:0% 0%"></div><span>1. Red Roses</span></button>
+          <button class="flowerOption" data-flower="white-roses" onclick="selectFlowerStyle('white-roses')"><div class="flowerSprite" style="background-position:0% 0%"></div><span>2. White Roses</span></button>
+          <button class="flowerOption" data-flower="pink-roses" onclick="selectFlowerStyle('pink-roses')"><div class="flowerSprite" style="background-position:0% 0%"></div><span>3. Pink Roses</span></button>
+          <button class="flowerOption" data-flower="yellow-sunflowers" onclick="selectFlowerStyle('yellow-sunflowers')"><div class="flowerSprite" style="background-position:0% 0%"></div><span>4. Yellow Sunflowers</span></button>
+          <button class="flowerOption" data-flower="purple-orchids" onclick="selectFlowerStyle('purple-orchids')"><div class="flowerSprite" style="background-position:0% 0%"></div><span>5. Purple Orchids</span></button>
+          <button class="flowerOption" data-flower="peach-peonies" onclick="selectFlowerStyle('peach-peonies')"><div class="flowerSprite" style="background-position:0% 0%"></div><span>6. Peach Peonies</span></button>
+          <button class="flowerOption" data-flower="white-jasmine" onclick="selectFlowerStyle('white-jasmine')"><div class="flowerSprite" style="background-position:0% 0%"></div><span>7. White Jasmine</span></button>
+          <button class="flowerOption" data-flower="blue-hydrangeas" onclick="selectFlowerStyle('blue-hydrangeas')"><div class="flowerSprite" style="background-position:0% 0%"></div><span>8. Blue Hydrangeas</span></button>
+          <button class="flowerOption" data-flower="orange-tulips" onclick="selectFlowerStyle('orange-tulips')"><div class="flowerSprite" style="background-position:0% 0%"></div><span>9. Orange Tulips</span></button>
+          <button class="flowerOption" data-flower="mixed-rainbow-bouquet" onclick="selectFlowerStyle('mixed-rainbow-bouquet')"><div class="flowerSprite" style="background-position:0% 0%"></div><span>10. Mixed Rainbow Bouquet</span></button>
         </div>
         <h3>QR pattern</h3>
         <div class="designerChoiceRow" id="designerPatternChoices">
@@ -1733,17 +1733,18 @@ function downloadQR() {
 
 /* QROMA DESIGN STUDIO — client-side export; does not change stored QR destinations. */
 const flowerStyleFiles = {
-  "red-roses": "/flowers/01-red-roses.webp",
-  "white-roses": "/flowers/02-white-roses.webp",
-  "pink-roses": "/flowers/03-pink-roses.webp",
-  "yellow-sunflowers": "/flowers/04-yellow-sunflowers.webp",
-  "purple-orchids": "/flowers/05-purple-orchids.webp",
-  "peach-peonies": "/flowers/06-peach-peonies.webp",
-  "white-jasmine": "/flowers/07-white-jasmine.webp",
-  "blue-hydrangeas": "/flowers/08-blue-hydrangeas.webp",
-  "orange-tulips": "/flowers/09-orange-tulips.webp",
-  "mixed-rainbow-bouquet": "/flowers/10-mixed-rainbow-bouquet.webp"
+  "red-roses": "/flowers/flower-catalog.svg",
+  "white-roses": "/flowers/flower-catalog.svg",
+  "pink-roses": "/flowers/flower-catalog.svg",
+  "yellow-sunflowers": "/flowers/flower-catalog.svg",
+  "purple-orchids": "/flowers/flower-catalog.svg",
+  "peach-peonies": "/flowers/flower-catalog.svg",
+  "white-jasmine": "/flowers/flower-catalog.svg",
+  "blue-hydrangeas": "/flowers/flower-catalog.svg",
+  "orange-tulips": "/flowers/flower-catalog.svg",
+  "mixed-rainbow-bouquet": "/flowers/flower-catalog.svg"
 };
+const flowerStyleIndex = {"red-roses":0,"white-roses":1,"pink-roses":2,"yellow-sunflowers":3,"purple-orchids":4,"peach-peonies":5,"white-jasmine":6,"blue-hydrangeas":7,"orange-tulips":8,"mixed-rainbow-bouquet":9};
 const flowerStyleColors = {
   "red-roses":"#9d1f35","white-roses":"#777d73","pink-roses":"#b84c78",
   "yellow-sunflowers":"#9a6a0b","purple-orchids":"#653b88","peach-peonies":"#c46d55",
@@ -1823,7 +1824,9 @@ function renderDesignerQR() {
   if (designerImage) {
     const tile = document.createElement("canvas"); tile.width=180; tile.height=180;
     const tctx = tile.getContext("2d"); tctx.filter="saturate(1.5) contrast(1.5) brightness(.72)";
-    tctx.drawImage(designerImage,0,0,180,180); texture=ctx.createPattern(tile,"repeat");
+    const index=flowerStyleIndex[designerFlower] || 0;
+    const sx=(index%2)*64, sy=Math.floor(index/2)*51;
+    tctx.drawImage(designerImage,sx,sy,64,51,0,0,180,180); texture=ctx.createPattern(tile,"repeat");
   }
   ctx.save(); ctx.fillStyle=texture || color;
   const inFinder = (x,y) => (x<7&&y<7)||(x>=count-7&&y<7)||(x<7&&y>=count-7);
