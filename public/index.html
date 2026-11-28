@@ -525,7 +525,7 @@ button:disabled{opacity:1!important;filter:none!important;cursor:not-allowed!imp
     </div>
     <div class="designerGrid">
       <div class="designerPreview">
-        <canvas id="designerCanvas" width="1100" height="1100" aria-label="QR design preview"></canvas>
+        <canvas id="designerCanvas" width="1200" height="1200" aria-label="QR design preview"></canvas>
         <small id="designerAddress"></small>
       </div>
       <div class="designerControls">
@@ -562,10 +562,15 @@ button:disabled{opacity:1!important;filter:none!important;cursor:not-allowed!imp
         <h3>Shop logo</h3>
         <input id="designerLogoUpload" class="designerUpload" type="file" accept="image/png,image/jpeg,image/webp" onchange="loadDesignerLogo(event)">
         <button class="secondary" onclick="clearDesignerLogo()">Remove logo</button>
+        <h3>Logo placement</h3>
+        <div class="designerChoiceRow" id="designerLogoChoices">
+          <button class="designerChoice selected" onclick="setLogoMode('center',this)">Centered logo</button>
+          <button class="designerChoice" onclick="setLogoMode('integrated',this)">Integrated in design</button>
+        </div>
         <p class="designerHint">The design is rendered locally in your browser. Always scan the exported image with another phone before printing; decorative effects and logos can affect readability.</p>
         <div class="designerActions">
-          <button class="primary" onclick="downloadDesignerQR()">Download designed PNG</button>
-          <button class="secondary" onclick="renderDesignerQR()">Refresh preview</button>
+          <button class="primary" onclick="downloadDesignerQR('full')">Download full design PNG</button>
+          <button class="secondary" onclick="downloadDesignerQR('transparent')">Download transparent QR PNG</button>
         </div>
       </div>
     </div>
@@ -1756,6 +1761,7 @@ let designerFlower = "red-roses";
 let designerPattern = "organic";
 let designerFinder = "rounded";
 let designerLogo = null;
+let designerLogoMode = "center";
 let designerImage = null;
 
 function openQRDesigner(code) {
@@ -1792,7 +1798,12 @@ function loadDesignerLogo(event) {
   reader.readAsDataURL(file);
 }
 function clearDesignerLogo() { designerLogo = null; document.getElementById("designerLogoUpload").value = ""; renderDesignerQR(); }
-function drawFinder(ctx, x, y, unit, color) {
+function setLogoMode(mode, button) {
+  designerLogoMode = mode;
+  button.parentElement.querySelectorAll("button").forEach(item => item.classList.toggle("selected", item === button));
+  renderDesignerQR();
+}
+function drawFinder(ctx, x, y, unit, color, transparent, bg) {
   const size = unit * 7;
   const circle = designerFinder === "circle";
   const shape = (px, py, w, h, fill, r) => {
@@ -1801,32 +1812,32 @@ function drawFinder(ctx, x, y, unit, color) {
     else { ctx.beginPath(); ctx.roundRect(px,py,w,h,r); ctx.fill(); }
   };
   shape(x,y,size,size,color,designerFinder==="rounded"?unit*1.15:0);
-  shape(x+unit,y+unit,size-unit*2,size-unit*2,document.getElementById("designerBgColor").value,designerFinder==="rounded"?unit*.8:0);
+  if (!transparent) shape(x+unit,y+unit,size-unit*2,size-unit*2,bg,designerFinder==="rounded"?unit*.8:0);
   shape(x+unit*2,y+unit*2,size-unit*4,size-unit*4,color,designerFinder==="rounded"?unit*.55:0);
 }
-function renderDesignerQR() {
-  if (!designerCode || !window.QRCode) return;
+function renderDesignerQR(targetCanvas = document.getElementById("designerCanvas"), transparent = false) {
+  if (!designerCode || !window.QRCode) return targetCanvas;
   const address = location.origin + "/r/" + encodeURIComponent(designerCode);
   const holder = document.createElement("div");
   const qr = new QRCode(holder,{text:address,width:900,height:900,correctLevel:QRCode.CorrectLevel.H});
   const source = holder.querySelector("canvas");
-  if (!source || !qr._oQRCode || !qr._oQRCode.getModuleCount) return;
+  if (!source || !qr._oQRCode || !qr._oQRCode.getModuleCount) return targetCanvas;
   const count = qr._oQRCode.getModuleCount();
-  const sourceCtx = source.getContext("2d");
-  const pixels = sourceCtx.getImageData(0,0,source.width,source.height).data;
-  const canvas = document.getElementById("designerCanvas");
-  const ctx = canvas.getContext("2d");
+  const pixels = source.getContext("2d").getImageData(0,0,source.width,source.height).data;
+  const ctx = targetCanvas.getContext("2d");
   const bg = document.getElementById("designerBgColor").value;
   const color = document.getElementById("designerQrColor").value;
-  const pad = 100, cell = 900 / count;
-  ctx.clearRect(0,0,1100,1100); ctx.fillStyle=bg; ctx.fillRect(0,0,1100,1100);
+  const pad = 150, area = 900, cell = area / count;
+  ctx.clearRect(0,0,1200,1200);
+  if (!transparent) { ctx.fillStyle=bg; ctx.fillRect(0,0,1200,1200); }
   let texture = null;
-  if (designerImage) {
+  if (designerImage && !transparent) {
     const tile = document.createElement("canvas"); tile.width=180; tile.height=180;
     const tctx = tile.getContext("2d"); tctx.filter="saturate(1.5) contrast(1.5) brightness(.72)";
     const index=flowerStyleIndex[designerFlower] || 0;
     const sx=(index%2)*64, sy=Math.floor(index/2)*51;
-    tctx.drawImage(designerImage,sx,sy,64,51,0,0,180,180); texture=ctx.createPattern(tile,"repeat");
+    tctx.drawImage(designerImage,sx,sy,64,51,0,0,180,180);
+    texture=ctx.createPattern(tile,"repeat");
   }
   ctx.save(); ctx.fillStyle=texture || color;
   const inFinder = (x,y) => (x<7&&y<7)||(x>=count-7&&y<7)||(x<7&&y>=count-7);
@@ -1842,20 +1853,31 @@ function renderDesignerQR() {
     else ctx.fillRect(left+inset,top+inset,w,w);
   }
   ctx.restore();
-  [[0,0],[count-7,0],[0,count-7]].forEach(([x,y])=>drawFinder(ctx,pad+x*cell,pad+y*cell,cell,color));
-  if(designerLogo) {
-    const box=170, x=(1100-box)/2, y=(1100-box)/2;
-    ctx.fillStyle=bg;ctx.beginPath();ctx.roundRect(x-14,y-14,box+28,box+28,22);ctx.fill();
+  [[0,0],[count-7,0],[0,count-7]].forEach(([x,y])=>drawFinder(ctx,pad+x*cell,pad+y*cell,cell,color,transparent,bg));
+  if(designerLogo && designerLogoMode === "center") {
+    const box=170, x=(1200-box)/2, y=(1200-box)/2;
+    ctx.fillStyle="#ffffff";ctx.beginPath();ctx.roundRect(x-14,y-14,box+28,box+28,22);ctx.fill();
+    const scale=Math.min(box/designerLogo.width,box/designerLogo.height);
+    const w=designerLogo.width*scale,h=designerLogo.height*scale;
+    ctx.drawImage(designerLogo,x+(box-w)/2,y+(box-h)/2,w,h);
+  } else if (designerLogo && designerLogoMode === "integrated") {
+    const box=92, x=1080, y=28;
+    ctx.save();ctx.shadowColor="#0006";ctx.shadowBlur=12;ctx.fillStyle="#fff";
+    ctx.beginPath();ctx.arc(x+box/2,y+box/2,box/2+7,0,Math.PI*2);ctx.fill();ctx.restore();
     const scale=Math.min(box/designerLogo.width,box/designerLogo.height);
     const w=designerLogo.width*scale,h=designerLogo.height*scale;
     ctx.drawImage(designerLogo,x+(box-w)/2,y+(box-h)/2,w,h);
   }
+  return targetCanvas;
 }
-function downloadDesignerQR() {
-  const canvas=document.getElementById("designerCanvas");
-  if(!designerCode || !canvas) return alert("Choose a QR code first.");
+function downloadDesignerQR(mode = "full") {
+  const transparent = mode === "transparent";
+  const canvas = document.createElement("canvas");
+  canvas.width = 1200; canvas.height = 1200;
+  renderDesignerQR(canvas, transparent);
+  if(!designerCode) return alert("Choose a QR code first.");
   const link=document.createElement("a");
-  link.download="QROMA-"+designerCode+"-design.png";
+  link.download="QROMA-"+designerCode+(transparent?"-transparent":"-full-design")+".png";
   link.href=canvas.toDataURL("image/png");
   link.click();
 }
